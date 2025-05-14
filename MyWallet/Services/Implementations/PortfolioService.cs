@@ -96,39 +96,50 @@ namespace MyWallet.Services.Implementations
 
         public async Task<PortfolioHistory> RecordPortfolioHistoryAsync(int portfolioId)
         {
-            var portfolio = await _context.Portfolios
-                .Include(p => p.Assets)
-                .Include(p => p.Transactions)
-                .FirstOrDefaultAsync(p => p.Id == portfolioId);
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (portfolio == null)
+            try
             {
-                throw new KeyNotFoundException($"Portfolio with ID {portfolioId} not found");
+                var portfolio = await _context.Portfolios
+                    .Include(p => p.Assets)
+                    .Include(p => p.Transactions)
+                    .FirstOrDefaultAsync(p => p.Id == portfolioId);
+
+                if (portfolio == null)
+                {
+                    throw new KeyNotFoundException($"Portfolio with ID {portfolioId} not found");
+                }
+
+                decimal totalValue = await CalculatePortfolioValueAsync(portfolioId);
+
+                decimal investedAmount = portfolio.Transactions
+                                             .Where(t => t.Type == TransactionType.Deposit)
+                                             .Sum(t => t.TotalAmount)
+                                         - portfolio.Transactions
+                                             .Where(t => t.Type == TransactionType.Withdrawal)
+                                             .Sum(t => t.TotalAmount);
+
+                var history = new PortfolioHistory
+                {
+                    PortfolioId = portfolioId,
+                    TotalValue = totalValue,
+                    InvestedAmount = investedAmount,
+                    RecordedAt = DateTime.UtcNow
+                };
+
+                _context.PortfolioHistories.Add(history);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return history;
             }
-
-            decimal totalValue = await CalculatePortfolioValueAsync(portfolioId);
-            
-            // Obliczenie kwoty zainwestowanej (suma wpłat - suma wypłat)
-            decimal investedAmount = portfolio.Transactions
-                .Where(t => t.Type == TransactionType.Deposit)
-                .Sum(t => t.TotalAmount)
-                - portfolio.Transactions
-                .Where(t => t.Type == TransactionType.Withdrawal)
-                .Sum(t => t.TotalAmount);
-
-            var portfolioHistory = new PortfolioHistory
+            catch (Exception)
             {
-                PortfolioId = portfolioId,
-                TotalValue = totalValue,
-                InvestedAmount = investedAmount,
-                RecordedAt = DateTime.UtcNow
-            };
-
-            _context.PortfolioHistories.Add(portfolioHistory);
-            await _context.SaveChangesAsync();
-
-            return portfolioHistory;
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
+
 
         public async Task<IEnumerable<PortfolioHistory>> GetPortfolioHistoryAsync(int portfolioId, DateTime startDate, DateTime endDate)
         {
@@ -177,5 +188,37 @@ namespace MyWallet.Services.Implementations
         {
             return await _context.Portfolios.AnyAsync(p => p.Id == id);
         }
+        
+        public async Task<decimal> GetInvestedAmountAsync(int portfolioId)
+        {
+            var portfolio = await _context.Portfolios
+                .Include(p => p.Transactions)
+                .FirstOrDefaultAsync(p => p.Id == portfolioId);
+
+            if (portfolio == null)
+            {
+                throw new KeyNotFoundException($"Portfolio with ID {portfolioId} not found");
+            }
+
+            decimal invested = portfolio.Transactions
+                .Where(t => t.Type == TransactionType.Deposit)
+                .Sum(t => t.TotalAmount);
+
+            decimal withdrawn = portfolio.Transactions
+                .Where(t => t.Type == TransactionType.Withdrawal)
+                .Sum(t => t.TotalAmount);
+
+            return invested - withdrawn;
+        }
+        
+        public async Task<decimal> GetPortfolioProfitLossAsync(int portfolioId)
+        {
+            var totalValue = await CalculatePortfolioValueAsync(portfolioId);
+            var investedAmount = await GetInvestedAmountAsync(portfolioId);
+
+            return totalValue - investedAmount;
+        }
+
+
     }
 }

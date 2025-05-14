@@ -26,6 +26,9 @@ namespace MyWallet.Services
         Task<PortfolioHistory> RecordPortfolioHistoryAsync(int portfolioId);
         Task<IEnumerable<PortfolioHistory>> GetPortfolioHistoryAsync(int portfolioId, DateTime startDate, DateTime endDate);
         Task<Dictionary<string, decimal>> GetAssetCategoryDistributionAsync(int portfolioId);
+        Task<decimal> GetInvestedAmountAsync(int portfolioId);
+        Task<decimal> GetPortfolioProfitLossAsync(int portfolioId);
+
     }
 
     public interface IAssetService
@@ -50,6 +53,9 @@ namespace MyWallet.Services
         Task<bool> DeleteTransactionAsync(int id);
         Task<IEnumerable<Transaction>> GetTransactionsByAssetAsync(int assetId);
         Task<IEnumerable<Transaction>> GetTransactionsByDateRangeAsync(int portfolioId, DateTime startDate, DateTime endDate);
+        Task<decimal> GetTotalInvestedAmountAsync(int portfolioId);
+        Task<decimal> GetTotalWithdrawnAmountAsync(int portfolioId);
+
     }
 
     public interface IReportService
