@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using MyWallet.Models;
+using MyWallet.DTOs;
+using MyWallet.Mappers;
 using MyWallet.Services;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MyWallet.Controllers
@@ -11,21 +13,22 @@ namespace MyWallet.Controllers
     public class PortfolioController : ControllerBase
     {
         private readonly IPortfolioService _portfolioService;
+        private readonly PortfolioMapper _portfolioMapper;
 
-        public PortfolioController(IPortfolioService portfolioService)
+        public PortfolioController(IPortfolioService portfolioService, PortfolioMapper portfolioMapper)
         {
             _portfolioService = portfolioService;
+            _portfolioMapper = portfolioMapper;
         }
 
-        // GET: api/portfolio/user/{userId}
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserPortfolios(int userId)
         {
             var portfolios = await _portfolioService.GetUserPortfoliosAsync(userId);
-            return Ok(portfolios);
+            var dtos = portfolios.Select(_portfolioMapper.ToDto);
+            return Ok(dtos);
         }
 
-        // GET: api/portfolio/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetPortfolioById(int id)
         {
@@ -33,29 +36,28 @@ namespace MyWallet.Controllers
             if (portfolio == null)
                 return NotFound();
 
-            return Ok(portfolio);
+            return Ok(_portfolioMapper.ToDto(portfolio));
         }
 
-        // POST: api/portfolio
         [HttpPost]
-        public async Task<IActionResult> CreatePortfolio([FromBody] Portfolio model)
+        public async Task<IActionResult> CreatePortfolio([FromBody] PortfolioDto dto)
         {
-            var portfolio = await _portfolioService.CreatePortfolioAsync(model);
-            return CreatedAtAction(nameof(GetPortfolioById), new { id = portfolio.Id }, portfolio);
+            var model = _portfolioMapper.ToModel(dto);
+            var created = await _portfolioService.CreatePortfolioAsync(model);
+            return CreatedAtAction(nameof(GetPortfolioById), new { id = created.Id }, _portfolioMapper.ToDto(created));
         }
 
-        // PUT: api/portfolio
         [HttpPut]
-        public async Task<IActionResult> UpdatePortfolio([FromBody] Portfolio model)
+        public async Task<IActionResult> UpdatePortfolio([FromBody] PortfolioDto dto)
         {
+            var model = _portfolioMapper.ToModel(dto);
             var success = await _portfolioService.UpdatePortfolioAsync(model);
             if (!success)
                 return NotFound();
 
-            return Ok("Zaktualizowano portfel.");
+            return Ok("Portfel zaktualizowany.");
         }
 
-        // DELETE: api/portfolio/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeletePortfolio(int id)
         {
@@ -63,10 +65,9 @@ namespace MyWallet.Controllers
             if (!success)
                 return NotFound();
 
-            return Ok("Usunięto portfel.");
+            return Ok("Portfel usunięty.");
         }
 
-        // GET: api/portfolio/{id}/value
         [HttpGet("{id}/value")]
         public async Task<IActionResult> GetPortfolioValue(int id)
         {
@@ -74,31 +75,27 @@ namespace MyWallet.Controllers
             return Ok(value);
         }
 
-        // GET: api/portfolio/{id}/profitloss
         [HttpGet("{id}/profitloss")]
         public async Task<IActionResult> GetProfitLoss(int id)
         {
-            var profitLoss = await _portfolioService.GetPortfolioProfitLossAsync(id);
-            return Ok(profitLoss);
+            var result = await _portfolioService.GetPortfolioProfitLossAsync(id);
+            return Ok(result);
         }
 
-        // GET: api/portfolio/{id}/invested
         [HttpGet("{id}/invested")]
         public async Task<IActionResult> GetInvestedAmount(int id)
         {
-            var invested = await _portfolioService.GetInvestedAmountAsync(id);
-            return Ok(invested);
+            var result = await _portfolioService.GetInvestedAmountAsync(id);
+            return Ok(result);
         }
 
-        // GET: api/portfolio/{id}/distribution
         [HttpGet("{id}/distribution")]
         public async Task<IActionResult> GetAssetCategoryDistribution(int id)
         {
-            var distribution = await _portfolioService.GetAssetCategoryDistributionAsync(id);
-            return Ok(distribution);
+            var result = await _portfolioService.GetAssetCategoryDistributionAsync(id);
+            return Ok(result);
         }
 
-        // POST: api/portfolio/{id}/record-history
         [HttpPost("{id}/record-history")]
         public async Task<IActionResult> RecordPortfolioHistory(int id)
         {
@@ -106,7 +103,6 @@ namespace MyWallet.Controllers
             return Ok(history);
         }
 
-        // GET: api/portfolio/{id}/history?start=2024-01-01&end=2024-12-31
         [HttpGet("{id}/history")]
         public async Task<IActionResult> GetPortfolioHistory(int id, [FromQuery] DateTime start, [FromQuery] DateTime end)
         {

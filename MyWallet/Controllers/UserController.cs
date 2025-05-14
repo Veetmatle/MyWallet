@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MyWallet.DTOs;
+using MyWallet.Mappers;
 using MyWallet.Models;
 using MyWallet.Services;
 using System.Threading.Tasks;
@@ -10,13 +12,14 @@ namespace MyWallet.Controllers
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly UserMapper _userMapper;
 
-        public UserController(IUserService userService)
+        public UserController(IUserService userService, UserMapper userMapper)
         {
             _userService = userService;
+            _userMapper = userMapper;
         }
 
-        // POST: api/user/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest model)
         {
@@ -28,56 +31,34 @@ namespace MyWallet.Controllers
 
             var result = await _userService.CreateUserAsync(user, model.Password);
             if (!result)
-            {
-                return Conflict("Użytkownik o podanym loginie lub adresie email już istnieje.");
-            }
+                return Conflict("Użytkownik już istnieje.");
 
             return Ok("Rejestracja zakończona sukcesem.");
         }
 
-        // POST: api/user/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest model)
         {
             var isValid = await _userService.ValidateUserCredentialsAsync(model.UsernameOrEmail, model.Password);
             if (!isValid)
-            {
                 return Unauthorized("Nieprawidłowe dane logowania.");
-            }
 
-            var user = await _userService.GetUserByUsernameAsync(model.UsernameOrEmail) 
+            var user = await _userService.GetUserByUsernameAsync(model.UsernameOrEmail)
                     ?? await _userService.GetUserByEmailAsync(model.UsernameOrEmail);
 
-            return Ok(new
-            {
-                user.Id,
-                user.Username,
-                user.Email
-                // Tu można później dodać JWT
-            });
+            return Ok(_userMapper.ToDto(user));
         }
 
-        // GET: api/user/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
             if (user == null)
-            {
-                return NotFound("Użytkownik nie istnieje.");
-            }
+                return NotFound();
 
-            return Ok(new
-            {
-                user.Id,
-                user.Username,
-                user.Email,
-                user.CreatedAt
-            });
+            return Ok(_userMapper.ToDto(user));
         }
     }
-
-    // Request DTOs
 
     public class RegisterRequest
     {

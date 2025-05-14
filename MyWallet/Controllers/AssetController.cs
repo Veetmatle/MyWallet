@@ -1,7 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MyWallet.DTOs;
 using MyWallet.Models;
 using MyWallet.Services;
+using MyWallet.Mappers;
 using System;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MyWallet.Controllers
@@ -11,10 +15,12 @@ namespace MyWallet.Controllers
     public class AssetController : ControllerBase
     {
         private readonly IAssetService _assetService;
+        private readonly AssetMapper _assetMapper;
 
-        public AssetController(IAssetService assetService)
+        public AssetController(IAssetService assetService, AssetMapper assetMapper)
         {
             _assetService = assetService;
+            _assetMapper = assetMapper;
         }
 
         // GET: api/asset/portfolio/{portfolioId}
@@ -22,7 +28,8 @@ namespace MyWallet.Controllers
         public async Task<IActionResult> GetAssetsByPortfolio(int portfolioId)
         {
             var assets = await _assetService.GetPortfolioAssetsAsync(portfolioId);
-            return Ok(assets);
+            var dtoList = assets.Select(_assetMapper.ToDto);
+            return Ok(dtoList);
         }
 
         // GET: api/asset/{id}
@@ -33,21 +40,24 @@ namespace MyWallet.Controllers
             if (asset == null)
                 return NotFound();
 
-            return Ok(asset);
+            var dto = _assetMapper.ToDto(asset);
+            return Ok(dto);
         }
 
         // POST: api/asset
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Asset model)
+        public async Task<IActionResult> Create([FromBody] AssetDto dto)
         {
+            var model = _assetMapper.ToModel(dto);
             var created = await _assetService.CreateAssetAsync(model);
-            return CreatedAtAction(nameof(GetAssetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetAssetById), new { id = created.Id }, _assetMapper.ToDto(created));
         }
 
         // PUT: api/asset
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] Asset model)
+        public async Task<IActionResult> Update([FromBody] AssetDto dto)
         {
+            var model = _assetMapper.ToModel(dto);
             var success = await _assetService.UpdateAssetAsync(model);
             if (!success)
                 return NotFound();
@@ -97,7 +107,7 @@ namespace MyWallet.Controllers
             var history = await _assetService.GetAssetPriceHistoryAsync(id, start, end);
             return Ok(history);
         }
-        
+
         [HttpPost("{id}/upload-image")]
         public async Task<IActionResult> UploadImage(int id, [FromForm] IFormFile file)
         {
@@ -120,7 +130,6 @@ namespace MyWallet.Controllers
                 await file.CopyToAsync(stream);
             }
 
-            // Aktualizacja modelu
             asset.ImagePath = $"uploads/assets/{fileName}";
             await _assetService.UpdateAssetAsync(asset);
 

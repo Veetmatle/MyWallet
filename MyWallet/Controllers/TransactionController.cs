@@ -1,7 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using MyWallet.DTOs;
+using MyWallet.Mappers;
 using MyWallet.Models;
 using MyWallet.Services;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace MyWallet.Controllers
@@ -11,21 +14,22 @@ namespace MyWallet.Controllers
     public class TransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;
+        private readonly TransactionMapper _mapper;
 
-        public TransactionController(ITransactionService transactionService)
+        public TransactionController(ITransactionService transactionService, TransactionMapper mapper)
         {
             _transactionService = transactionService;
+            _mapper = mapper;
         }
 
-        // GET: api/transaction/portfolio/{portfolioId}
         [HttpGet("portfolio/{portfolioId}")]
         public async Task<IActionResult> GetByPortfolio(int portfolioId)
         {
             var transactions = await _transactionService.GetPortfolioTransactionsAsync(portfolioId);
-            return Ok(transactions);
+            var dtos = transactions.Select(_mapper.ToDto);
+            return Ok(dtos);
         }
 
-        // GET: api/transaction/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -33,29 +37,28 @@ namespace MyWallet.Controllers
             if (transaction == null)
                 return NotFound();
 
-            return Ok(transaction);
+            return Ok(_mapper.ToDto(transaction));
         }
 
-        // POST: api/transaction
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] Transaction model)
+        public async Task<IActionResult> Create([FromBody] TransactionDto dto)
         {
+            var model = _mapper.ToModel(dto);
             var created = await _transactionService.CreateTransactionAsync(model);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetById), new { id = created.Id }, _mapper.ToDto(created));
         }
 
-        // PUT: api/transaction
         [HttpPut]
-        public async Task<IActionResult> Update([FromBody] Transaction model)
+        public async Task<IActionResult> Update([FromBody] TransactionDto dto)
         {
+            var model = _mapper.ToModel(dto);
             var success = await _transactionService.UpdateTransactionAsync(model);
             if (!success)
                 return NotFound();
 
-            return Ok("Transakcja została zaktualizowana.");
+            return Ok("Transakcja zaktualizowana.");
         }
 
-        // DELETE: api/transaction/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -63,26 +66,23 @@ namespace MyWallet.Controllers
             if (!success)
                 return NotFound();
 
-            return Ok("Transakcja została usunięta.");
+            return Ok("Transakcja usunięta.");
         }
 
-        // GET: api/transaction/asset/{assetId}
         [HttpGet("asset/{assetId}")]
         public async Task<IActionResult> GetByAsset(int assetId)
         {
             var transactions = await _transactionService.GetTransactionsByAssetAsync(assetId);
-            return Ok(transactions);
+            return Ok(transactions.Select(_mapper.ToDto));
         }
 
-        // GET: api/transaction/portfolio/{portfolioId}/range?start=2024-01-01&end=2024-12-31
         [HttpGet("portfolio/{portfolioId}/range")]
         public async Task<IActionResult> GetByDateRange(int portfolioId, [FromQuery] DateTime start, [FromQuery] DateTime end)
         {
             var transactions = await _transactionService.GetTransactionsByDateRangeAsync(portfolioId, start, end);
-            return Ok(transactions);
+            return Ok(transactions.Select(_mapper.ToDto));
         }
 
-        // GET: api/transaction/portfolio/{portfolioId}/invested
         [HttpGet("portfolio/{portfolioId}/invested")]
         public async Task<IActionResult> GetTotalInvested(int portfolioId)
         {
@@ -90,7 +90,6 @@ namespace MyWallet.Controllers
             return Ok(total);
         }
 
-        // GET: api/transaction/portfolio/{portfolioId}/withdrawn
         [HttpGet("portfolio/{portfolioId}/withdrawn")]
         public async Task<IActionResult> GetTotalWithdrawn(int portfolioId)
         {
