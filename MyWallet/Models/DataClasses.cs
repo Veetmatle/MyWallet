@@ -94,6 +94,8 @@ namespace MyWallet.Models
         public virtual Portfolio Portfolio { get; set; }
         
         public virtual ICollection<AssetPriceHistory> PriceHistory { get; set; } = new List<AssetPriceHistory>();
+        
+        public string? ImagePath { get; set; }
     }
 
     public enum TransactionType
