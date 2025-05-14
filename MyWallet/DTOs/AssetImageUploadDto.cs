@@ -1,7 +1,10 @@
-﻿namespace MyWallet.DTOs;
+﻿using Microsoft.AspNetCore.Http;
 
-public class AssetImageUploadDto
+namespace MyWallet.DTOs
 {
-    public int AssetId { get; set; }
-    public IFormFile File { get; set; }
+    public class AssetImageUploadDto
+    {
+        public int AssetId { get; set; }
+        public IFormFile File { get; set; }
+    }
 }

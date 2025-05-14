@@ -68,6 +68,10 @@
             "Riok.Mapperly": {
               "target": "Package",
               "version": "[4.2.1, )"
+            },
+            "Swashbuckle.AspNetCore": {
+              "target": "Package",
+              "version": "[8.1.1, )"
             }
           },
           "imports": [

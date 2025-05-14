@@ -1,0 +1,20 @@
+{
+  "Version": 1,
+  "Hash": "amZtftI1aZqSXyCxN5ktcp0aqaElrVeBqPaAo3UT1Jk=",
+  "Source": "MyWallet",
+  "BasePath": "_content/MyWallet",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "MyWallet\\wwwroot",
+      "Source": "MyWallet",
+      "ContentRoot": "D:\\RIDER_PROJECTS\\MyWalletApplication\\MyWallet\\wwwroot\\",
+      "BasePath": "_content/MyWallet",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [],
+  "Endpoints": []
+}

@@ -20,19 +20,22 @@ builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
-builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddHttpClient();
 
 // Rejestracja mapperów (Mapperly)
 builder.Services.AddScoped<UserMapper>();
 builder.Services.AddScoped<PortfolioMapper>();
 builder.Services.AddScoped<AssetMapper>();
 builder.Services.AddScoped<TransactionMapper>();
+builder.Services.AddControllers();
 
 
 // 🌐 Obsługa kontrolerów
 builder.Services.AddControllers();
 
 var app = builder.Build();
+
+
 
 // 🔒 Routing i middleware
 app.UseHttpsRedirection();
@@ -41,5 +44,9 @@ app.UseAuthorization(); // JWT w przyszłości
 // 🌍 Mapowanie endpointów z kontrolerów
 app.MapControllers();
 
+
+app.MapGet("/", () => "API działa!");
+
 // 🚀 Start aplikacji
 app.Run();
+
