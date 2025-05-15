@@ -7,7 +7,7 @@
         body: JSON.stringify({
             name,
             description,
-            userId, // to dodamy do dto w kolejnym kroku, jeśli jeszcze go tam nie ma
+            userId, 
             createdAt: new Date().toISOString(),
         }),
     });

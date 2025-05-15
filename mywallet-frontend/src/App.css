@@ -60,3 +60,9 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.error-message {
+  color: #dc2626;
+  font-size: 14px;
+  margin-top: 5px;
+}

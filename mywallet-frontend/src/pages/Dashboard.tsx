@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { createPortfolio } from "../api/portfolio"; // zakładam, że masz ten plik
+import { createPortfolio } from "../api/portfolio";
 import "./dashboard.css";
 
 interface PortfolioDto {
@@ -18,6 +18,7 @@ export default function Dashboard() {
     const [showForm, setShowForm] = useState(false);
     const [newName, setNewName] = useState("");
     const [newDescription, setNewDescription] = useState("");
+    const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
     useEffect(() => {
         const userData = localStorage.getItem("user");
@@ -51,13 +52,50 @@ export default function Dashboard() {
     };
 
     const handleCreatePortfolio = async () => {
-        if (!newName.trim()) return;
+        const errors: { [key: string]: string } = {};
+
+        if (!newName.trim()) {
+            errors.name = "Nazwa portfela jest wymagana.";
+        } else if (newName.length > 100) {
+            errors.name = "Nazwa może mieć maksymalnie 100 znaków.";
+        }
+
+        if (newDescription.length > 500) {
+            errors.description = "Opis może mieć maksymalnie 500 znaków.";
+        }
+
+        setFormErrors(errors);
+        if (Object.keys(errors).length > 0) return;
 
         try {
-            const created = await createPortfolio(user.id, newName, newDescription);
+            const response = await fetch("/api/portfolio", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: newName,
+                    description: newDescription,
+                    userId: user.id,
+                    createdAt: new Date().toISOString()
+                }),
+            });
+
+            if (response.status === 400) {
+                const data = await response.json();
+                const backendErrors: { [key: string]: string } = {};
+                for (const key in data.errors) {
+                    backendErrors[key.toLowerCase()] = data.errors[key][0];
+                }
+                setFormErrors(backendErrors);
+                return;
+            }
+
+            if (!response.ok) throw new Error("Nie udało się utworzyć portfela.");
+
+            const created = await response.json();
             setPortfolios([...portfolios, created]);
             setNewName("");
             setNewDescription("");
+            setFormErrors({});
             setShowForm(false);
         } catch (err: any) {
             setError(err.message);
@@ -124,12 +162,16 @@ export default function Dashboard() {
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
                         />
+                        {formErrors.name && <div className="error-message">{formErrors.name}</div>}
+
                         <input
                             type="text"
                             placeholder="Opis (opcjonalnie)"
                             value={newDescription}
                             onChange={(e) => setNewDescription(e.target.value)}
                         />
+                        {formErrors.description && <div className="error-message">{formErrors.description}</div>}
+
                         <button className="save-btn" onClick={handleCreatePortfolio}>
                             Zapisz portfel
                         </button>

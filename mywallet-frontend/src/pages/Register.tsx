@@ -7,21 +7,56 @@ export default function Register() {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [success, setSuccess] = useState("");
-    const [error, setError] = useState("");
+
+    const validate = () => {
+        const newErrors: { [key: string]: string } = {};
+
+        if (!username.trim()) newErrors.username = "Login jest wymagany.";
+        else if (username.length > 50) newErrors.username = "Login może mieć maksymalnie 50 znaków.";
+
+        if (!email.trim()) newErrors.email = "E-mail jest wymagany.";
+        else if (!/^\S+@\S+\.\S+$/.test(email)) newErrors.email = "Nieprawidłowy adres e-mail.";
+
+        if (!password) newErrors.password = "Hasło jest wymagane.";
+        else if (password.length < 6) newErrors.password = "Hasło musi mieć co najmniej 6 znaków.";
+
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const handleRegister = async (e: React.FormEvent) => {
         e.preventDefault();
+
+        if (!validate()) return;
+
         try {
-            const result = await register(username, email, password);
-            setSuccess(result);
-            setError("");
-            // Opcjonalnie: automatyczne przekierowanie po rejestracji
-            // setTimeout(() => {
-            //     window.location.href = "/";
-            // }, 3000);
+            const response = await fetch("/api/user/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, email, password }),
+            });
+
+            if (response.status === 400) {
+                const data = await response.json();
+                const backendErrors: { [key: string]: string } = {};
+                for (const key in data.errors) {
+                    backendErrors[key.toLowerCase()] = data.errors[key][0]; // zakładamy jeden błąd na pole
+                }
+                setErrors(backendErrors);
+                setSuccess("");
+                return;
+            }
+
+            if (!response.ok) throw new Error("Rejestracja nie powiodła się");
+
+            const message = await response.text();
+            setSuccess(message);
+            setErrors({});
         } catch (err: any) {
-            setError(err.message);
+            setErrors({ global: err.message });
             setSuccess("");
         }
     };
@@ -41,8 +76,8 @@ export default function Register() {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="form-control"
-                            required
                         />
+                        {errors.username && <div className="error-message">{errors.username}</div>}
                     </div>
                     <div className="form-group">
                         <label htmlFor="email">E-mail</label>
@@ -53,8 +88,8 @@ export default function Register() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="form-control"
-                            required
                         />
+                        {errors.email && <div className="error-message">{errors.email}</div>}
                     </div>
                     <div className="form-group">
                         <label htmlFor="password">Hasło</label>
@@ -65,14 +100,14 @@ export default function Register() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="form-control"
-                            required
                         />
+                        {errors.password && <div className="error-message">{errors.password}</div>}
                     </div>
                     <button type="submit" className="btn btn-primary">
                         Zarejestruj się
                     </button>
+                    {errors.global && <div className="error-message">{errors.global}</div>}
                     {success && <div className="success-message">{success}</div>}
-                    {error && <div className="error-message">{error}</div>}
                 </form>
                 <div className="auth-footer">
                     Masz już konto?
