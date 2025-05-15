@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 // Import stylów
 import "./App.css";
 import "./auth.css";
+import PortfolioDetails from "./pages/PortfolioDetails";
 
 function App() {
     // Sprawdzenie, czy użytkownik jest zalogowany
@@ -24,6 +25,10 @@ function App() {
                 <Route
                     path="/register"
                     element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Register />}
+                />
+                <Route
+                    path="/portfolio/:id"
+                    element={isAuthenticated() ? <PortfolioDetails /> : <Navigate to="/" />}
                 />
                 <Route
                     path="/dashboard"

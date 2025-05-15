@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from "react";
 import { createPortfolio } from "../api/portfolio";
+import { Link } from "react-router-dom";
 import "./dashboard.css";
 
 interface PortfolioDto {
@@ -194,15 +195,21 @@ export default function Dashboard() {
                 ) : (
                     <div className="portfolios-list">
                         {portfolios.map((portfolio) => (
-                            <div key={portfolio.id} className="portfolio-card">
-                                <h3 className="portfolio-name">{portfolio.name}</h3>
-                                <p className="portfolio-description">
-                                    {portfolio.description || "Brak opisu"}
-                                </p>
-                                <small className="portfolio-date">
-                                    Utworzono: {formatDate(portfolio.createdAt)}
-                                </small>
-                            </div>
+                            <Link
+                                to={`/portfolio/${portfolio.id}`}
+                                key={portfolio.id}
+                                className="portfolio-card-link"
+                            >
+                                <div className="portfolio-card">
+                                    <h3 className="portfolio-name">{portfolio.name}</h3>
+                                    <p className="portfolio-description">
+                                        {portfolio.description || "Brak opisu"}
+                                    </p>
+                                    <small className="portfolio-date">
+                                        Utworzono: {formatDate(portfolio.createdAt)}
+                                    </small>
+                                </div>
+                            </Link>
                         ))}
                     </div>
                 )}
