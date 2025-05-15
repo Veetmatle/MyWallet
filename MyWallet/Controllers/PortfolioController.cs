@@ -42,6 +42,9 @@ namespace MyWallet.Controllers
         [HttpPost]
         public async Task<IActionResult> CreatePortfolio([FromBody] PortfolioDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            
             var model = _portfolioMapper.ToModel(dto);
             var created = await _portfolioService.CreatePortfolioAsync(model);
             return CreatedAtAction(nameof(GetPortfolioById), new { id = created.Id }, _portfolioMapper.ToDto(created));
@@ -50,6 +53,9 @@ namespace MyWallet.Controllers
         [HttpPut]
         public async Task<IActionResult> UpdatePortfolio([FromBody] PortfolioDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             var model = _portfolioMapper.ToModel(dto);
             var success = await _portfolioService.UpdatePortfolioAsync(model);
             if (!success)

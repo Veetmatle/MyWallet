@@ -1,16 +1,36 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 
+// Import stylów
+import "./App.css";
+import "./auth.css";
+
 function App() {
+    // Sprawdzenie, czy użytkownik jest zalogowany
+    const isAuthenticated = () => {
+        return localStorage.getItem("user") !== null;
+    };
+
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/dashboard" element={<Dashboard />} />
+                <Route
+                    path="/"
+                    element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Login />}
+                />
+                <Route
+                    path="/register"
+                    element={isAuthenticated() ? <Navigate to="/dashboard" /> : <Register />}
+                />
+                <Route
+                    path="/dashboard"
+                    element={isAuthenticated() ? <Dashboard /> : <Navigate to="/" />}
+                />
+                {/* Przekierowanie nieznanych ścieżek do strony głównej */}
+                <Route path="*" element={<Navigate to="/" />} />
             </Routes>
         </BrowserRouter>
     );

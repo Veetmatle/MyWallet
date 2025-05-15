@@ -43,6 +43,9 @@ namespace MyWallet.Controllers
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] TransactionDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            
             var model = _mapper.ToModel(dto);
             var created = await _transactionService.CreateTransactionAsync(model);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, _mapper.ToDto(created));
@@ -51,6 +54,9 @@ namespace MyWallet.Controllers
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] TransactionDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+            
             var model = _mapper.ToModel(dto);
             var success = await _transactionService.UpdateTransactionAsync(model);
             if (!success)

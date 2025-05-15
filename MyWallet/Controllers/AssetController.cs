@@ -23,7 +23,6 @@ namespace MyWallet.Controllers
             _assetMapper = assetMapper;
         }
 
-        // GET: api/asset/portfolio/{portfolioId}
         [HttpGet("portfolio/{portfolioId}")]
         public async Task<IActionResult> GetAssetsByPortfolio(int portfolioId)
         {
@@ -32,7 +31,6 @@ namespace MyWallet.Controllers
             return Ok(dtoList);
         }
 
-        // GET: api/asset/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetAssetById(int id)
         {
@@ -44,19 +42,23 @@ namespace MyWallet.Controllers
             return Ok(dto);
         }
 
-        // POST: api/asset
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AssetDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState); // ✅ WALIDACJA
+
             var model = _assetMapper.ToModel(dto);
             var created = await _assetService.CreateAssetAsync(model);
             return CreatedAtAction(nameof(GetAssetById), new { id = created.Id }, _assetMapper.ToDto(created));
         }
 
-        // PUT: api/asset
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] AssetDto dto)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState); // ✅ WALIDACJA
+
             var model = _assetMapper.ToModel(dto);
             var success = await _assetService.UpdateAssetAsync(model);
             if (!success)
@@ -65,7 +67,6 @@ namespace MyWallet.Controllers
             return Ok("Aktywo zostało zaktualizowane.");
         }
 
-        // DELETE: api/asset/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -76,7 +77,6 @@ namespace MyWallet.Controllers
             return Ok("Aktywo zostało usunięte.");
         }
 
-        // PUT: api/asset/portfolio/{portfolioId}/update-prices
         [HttpPut("portfolio/{portfolioId}/update-prices")]
         public async Task<IActionResult> UpdateAssetPrices(int portfolioId)
         {
@@ -84,7 +84,6 @@ namespace MyWallet.Controllers
             return Ok("Ceny aktywów zaktualizowane.");
         }
 
-        // GET: api/asset/{id}/value
         [HttpGet("{id}/value")]
         public async Task<IActionResult> GetAssetCurrentValue(int id)
         {
@@ -92,7 +91,6 @@ namespace MyWallet.Controllers
             return Ok(value);
         }
 
-        // GET: api/asset/{id}/profitloss
         [HttpGet("{id}/profitloss")]
         public async Task<IActionResult> GetAssetProfitLoss(int id)
         {
@@ -100,7 +98,6 @@ namespace MyWallet.Controllers
             return Ok(profitLoss);
         }
 
-        // GET: api/asset/{id}/history?start=2024-01-01&end=2024-12-31
         [HttpGet("{id}/history")]
         public async Task<IActionResult> GetAssetPriceHistory(int id, [FromQuery] DateTime start, [FromQuery] DateTime end)
         {
