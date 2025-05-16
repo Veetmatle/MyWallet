@@ -9,6 +9,8 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using MyWallet.Models;
 
 namespace MyWallet.Services.Implementations
 {
@@ -302,5 +304,60 @@ namespace MyWallet.Services.Implementations
                 public decimal Close { get; set; }
             }
         }
+        
+        public async Task<IEnumerable<AssetHintDto>> SearchAssetsAsync(string query, string category)
+        {
+            var apiConfig = await GetApiConfigForCategoryAsync(category);
+            if (apiConfig == null || string.IsNullOrWhiteSpace(query))
+                return Enumerable.Empty<AssetHintDto>();
+
+            var client = _clientFactory.CreateClient();
+            switch (category.ToLower())
+            {
+                case "stock":
+                case "etf":
+                    var url = $"{apiConfig.BaseUrl}/query?function=SYMBOL_SEARCH&keywords={Uri.EscapeDataString(query)}&apikey={apiConfig.ApiKey}";
+                    var resp = await client.GetFromJsonAsync<AlphaVantageSearchResponse>(url);
+                    return resp?.BestMatches?
+                               .Select(m => new AssetHintDto { Symbol = m.Symbol, Name = m.Name })
+                           ?? Enumerable.Empty<AssetHintDto>();
+
+                case "cryptocurrency":
+                    var listUrl = $"{apiConfig.BaseUrl}/coins/list";
+                    var coins = await client.GetFromJsonAsync<List<CoinListItem>>(listUrl);
+                    return coins?
+                               .Where(c => c.Id.Contains(query, StringComparison.OrdinalIgnoreCase)
+                                           || c.Name.Contains(query, StringComparison.OrdinalIgnoreCase))
+                               .Select(c => new AssetHintDto { Symbol = c.Id, Name = c.Name })
+                               .Take(20)
+                           ?? Enumerable.Empty<AssetHintDto>();
+
+                default:
+                    return Enumerable.Empty<AssetHintDto>();
+            }
+        }
+
+// klasy pomocnicze:
+        private class AlphaVantageSearchResponse
+        {
+            [JsonPropertyName("bestMatches")]
+            public List<AlphaMatch>? BestMatches { get; set; }
+        }
+
+        private class AlphaMatch
+        {
+            [JsonPropertyName("1. symbol")]
+            public string Symbol { get; set; } = string.Empty;
+            [JsonPropertyName("2. name")]
+            public string Name   { get; set; } = string.Empty;
+        }
+
+        private class CoinListItem
+        {
+            public string Id     { get; set; } = string.Empty;
+            public string Symbol { get; set; } = string.Empty;
+            public string Name   { get; set; } = string.Empty;
+        }
+
     }
 }
