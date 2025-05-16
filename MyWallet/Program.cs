@@ -22,31 +22,41 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
 builder.Services.AddHttpClient();
 
+// ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 // Rejestracja mapperów (Mapperly)
 builder.Services.AddScoped<UserMapper>();
 builder.Services.AddScoped<PortfolioMapper>();
 builder.Services.AddScoped<AssetMapper>();
 builder.Services.AddScoped<TransactionMapper>();
-builder.Services.AddControllers();
-
 
 // 🌐 Obsługa kontrolerów
 builder.Services.AddControllers();
 
 var app = builder.Build();
 
-
-
 // 🔒 Routing i middleware
 app.UseHttpsRedirection();
+
+// ⬇️ Włączamy CORS przed autoryzacją i mapowaniem kontrolerów
+app.UseCors("AllowFrontend");
+
 app.UseAuthorization(); // JWT w przyszłości
 
 // 🌍 Mapowanie endpointów z kontrolerów
 app.MapControllers();
 
-
 app.MapGet("/", () => "API działa!");
 
 // 🚀 Start aplikacji
 app.Run();
-
