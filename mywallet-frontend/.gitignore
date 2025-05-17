@@ -21,3 +21,24 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Rider (JetBrains IDE)
+.idea/
+
+# Build outputs
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ASP.NET secrets
+*.db
+*.sqlite
+*.pfx
+
+# VS Code
+.vscode/

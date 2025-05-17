@@ -14,6 +14,16 @@ namespace MyWallet.Controllers
     [Route("api/[controller]")]
     public class AssetController : ControllerBase
     {
+        
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string category, [FromQuery] string query, [FromServices] IExternalApiService externalApi)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return BadRequest("Query nie może być puste.");
+
+            var hints = await externalApi.SearchAssetsAsync(query, category);
+            return Ok(hints);
+        }
         private readonly IAssetService _assetService;
         private readonly AssetMapper _assetMapper;
 

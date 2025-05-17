@@ -1,20 +1,16 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./dashboard.css";
-
-interface AssetSuggestion {
-    symbol: string;
-    name: string;
-}
+import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
 
 interface AssetDto {
     id: number;
     symbol: string;
     name: string;
     category: string;
-    initialPrice: number;
     currentPrice: number;
     quantity: number;
+    imagePath?: string;
 }
 
 interface PortfolioDto {
@@ -25,233 +21,219 @@ interface PortfolioDto {
 }
 
 export default function PortfolioDetails() {
-    const { id } = useParams();
+    const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
 
     const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
     const [assets, setAssets] = useState<AssetDto[]>([]);
     const [error, setError] = useState("");
 
-    const [showAssetForm, setShowAssetForm] = useState(false);
-    const [symbolQuery, setSymbolQuery] = useState("");
-    const [symbolResults, setSymbolResults] = useState<AssetSuggestion[]>([]);
-    const [selectedSymbol, setSelectedSymbol] = useState("");
-    const [selectedName, setSelectedName] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState("crypto");
-    const [purchasePrice, setPurchasePrice] = useState("");
-    const [quantity, setQuantity] = useState("");
-    const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+    const { hints, fetchHints, clearHints } = useAssetHints();
+    const debounceRef = useRef<number>(0);
 
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-    const [deletePassword, setDeletePassword] = useState("");
+    const [newAsset, setNewAsset] = useState({
+        symbol: "",
+        name: "",
+        category: "stock",
+        currentPrice: "",
+        quantity: "",
+    });
 
+    // 1) Pobierz portfel i jego aktywa
     useEffect(() => {
         if (!id) return;
 
-        fetch(`/api/portfolio/${id}`)
-            .then((res) => res.json())
+        fetch(`http://localhost:5210/api/portfolio/${id}`)
+            .then((r) => r.json())
             .then(setPortfolio)
             .catch(() => setError("Nie udało się pobrać portfela."));
 
-        fetch(`/api/asset/portfolio/${id}`)
-            .then((res) => res.json())
+        fetch(`http://localhost:5210/api/asset/portfolio/${id}`)
+            .then((r) => r.json())
             .then(setAssets)
             .catch(() => setError("Nie udało się pobrać aktywów."));
     }, [id]);
 
-    useEffect(() => {
-        const delay = setTimeout(() => {
-            if (symbolQuery.length < 2) return;
-
-            fetch(`/api/external/search?query=${symbolQuery}&category=${selectedCategory}`)
-                .then((res) => res.json())
-                .then(setSymbolResults)
-                .catch(() => setSymbolResults([]));
-        }, 300);
-
-        return () => clearTimeout(delay);
-    }, [symbolQuery, selectedCategory]);
-
-    const handleSelectSymbol = async (symbol: string, name: string) => {
-        setSelectedSymbol(symbol);
-        setSelectedName(name);
-        setSymbolQuery(symbol);
-        setSymbolResults([]);
-        try {
-            const res = await fetch(`/api/external/current-price?symbol=${symbol}&category=${selectedCategory}`);
-            const data = await res.json();
-            setCurrentPrice(data.currentPrice);
-        } catch {
-            setCurrentPrice(null);
-        }
+    // 2) Kliknięcie na podpowiedź → uzupełnij pola i wyczyść listę
+    const handleSelectHint = (hint: AssetHintDto) => {
+        setNewAsset((prev) => ({
+            ...prev,
+            symbol: hint.symbol,
+            name: hint.name,
+        }));
+        clearHints();
     };
 
+    // 3) Dodawanie aktywa
     const handleAddAsset = async () => {
-        if (!selectedSymbol || !selectedName || !purchasePrice || !quantity) {
-            setError("Uzupełnij wszystkie pola.");
+        setError("");
+        const portfolioId = Number(id);
+        if (isNaN(portfolioId)) {
+            setError("Nieprawidłowe ID portfela.");
             return;
         }
+        
 
         const payload = {
-            symbol: selectedSymbol,
-            name: selectedName,
-            category: selectedCategory,
-            initialPrice: parseFloat(purchasePrice),
-            currentPrice: currentPrice ?? parseFloat(purchasePrice),
-            quantity: parseFloat(quantity),
-            portfolioId: parseInt(id || "")
+            symbol: newAsset.symbol,
+            name: newAsset.name,
+            category: newAsset.category,
+            currentPrice: parseFloat(newAsset.currentPrice),
+            quantity: parseFloat(newAsset.quantity),
+            portfolioId,
         };
 
         try {
-            const res = await fetch("/api/asset", {
+            const res = await fetch("http://localhost:5210/api/asset", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
-            if (!res.ok) {
+            if (res.status === 400) {
                 const data = await res.json();
-                const msg = data?.errors ? Object.values(data.errors).flat().join(" ") : "Błąd dodawania aktywa.";
-                setError(msg);
+                setError(Object.values(data.errors).flat().join(" "));
                 return;
             }
-
-            const added = await res.json();
-            setAssets([...assets, added]);
-            setSelectedSymbol("");
-            setSelectedName("");
-            setSymbolQuery("");
-            setQuantity("");
-            setPurchasePrice("");
-            setCurrentPrice(null);
-            setError("");
-            setShowAssetForm(false);
-        } catch {
-            setError("Nie udało się dodać aktywa.");
-        }
-    };
-
-    const handleDeletePortfolio = async () => {
-        if (deletePassword.trim().length < 3) {
-            setError("Podaj hasło, aby potwierdzić.");
-            return;
-        }
-
-        const confirmed = window.confirm("Czy na pewno chcesz usunąć ten portfel?");
-        if (!confirmed) return;
-
-        try {
-            const res = await fetch(`/api/portfolio/${id}`, { method: "DELETE" });
             if (!res.ok) throw new Error();
-            navigate("/dashboard");
+
+            const added: AssetDto = await res.json();
+            setAssets((prev) => [...prev, added]);
+            setNewAsset({
+                symbol: "",
+                name: "",
+                category: "stock",
+                currentPrice: "",
+                quantity: "",
+            });
         } catch {
-            setError("Nie udało się usunąć portfela.");
+            setError("Błąd podczas dodawania aktywa.");
         }
     };
 
-    if (!portfolio) return <p>Ładowanie...</p>;
+    if (!portfolio) return <p>Ładowanie…</p>;
 
     return (
         <div className="dashboard-content">
-            <section style={{ marginBottom: "40px" }}>
-                <h2>{portfolio.name}</h2>
-                <p>{portfolio.description}</p>
-            </section>
+            <h2>{portfolio.name}</h2>
+            <p>{portfolio.description}</p>
 
-            <section style={{ marginBottom: "40px" }}>
-                <h3>Aktywa</h3>
-                {assets.length === 0 ? (
-                    <p>Brak aktywów.</p>
-                ) : (
-                    <div className="portfolios-list">
-                        {assets.map((a) => (
-                            <div key={a.id} className="portfolio-card">
-                                <h4>{a.symbol} – {a.name}</h4>
-                                <p>Kategoria: {a.category}</p>
-                                <p>Ilość: {a.quantity}</p>
-                                <p>Cena zakupu: {a.initialPrice.toFixed(2)}</p>
-                                <p>Aktualna cena: {a.currentPrice.toFixed(2)}</p>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
+            <hr />
+            <h3>Dodaj aktywo</h3>
+            <div className="portfolio-form">
+                {/* SYMBOL + lista podpowiedzi */}
+                <div style={{ position: "relative" }}>
+                    <input
+                        placeholder="Symbol"
+                        value={newAsset.symbol}
+                        onChange={(e) => {
+                            const val = e.target.value.trim().toLowerCase();
+                            setNewAsset((prev) => ({ ...prev, symbol: val }));
 
-            <section style={{ marginBottom: "40px" }}>
-                <button className="save-btn" onClick={() => setShowAssetForm(!showAssetForm)}>
-                    {showAssetForm ? "Anuluj" : "Dodaj aktywo"}
+                            // debounce fetchHints
+                            clearTimeout(debounceRef.current);
+                            if (val.length >= 2 && newAsset.category) {
+                                debounceRef.current = window.setTimeout(() => {
+                                    fetchHints(val, newAsset.category);
+                                }, 300);
+                            }
+                        }}
+                        style={{ width: "100%" }}
+                    />
+                    {hints.length > 0 && (
+                        <ul
+                            className="hints-list"
+                            style={{
+                                position: "absolute",
+                                top: "100%",
+                                left: 0,
+                                right: 0,
+                                background: "white",
+                                border: "1px solid #ccc",
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                margin: 0,
+                                padding: 0,
+                                listStyle: "none",
+                                zIndex: 10,
+                            }}
+                        >
+                            {hints.map((hint) => (
+                                <li
+                                    key={hint.symbol}
+                                    onClick={() => handleSelectHint(hint)}
+                                    style={{ padding: "8px", cursor: "pointer" }}
+                                >
+                                    {hint.symbol} – {hint.name}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* NAZWA */}
+                <input
+                    placeholder="Nazwa"
+                    value={newAsset.name}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                />
+                {/* KATEGORIA */}
+                <input
+                    placeholder="Kategoria (np. crypto, stock)"
+                    value={newAsset.category}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, category: e.target.value }))
+                    }
+                />
+                {/* CENA */}
+                <input
+                    placeholder="Aktualna cena"
+                    type="number"
+                    value={newAsset.currentPrice}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({
+                            ...prev,
+                            currentPrice: e.target.value,
+                        }))
+                    }
+                />
+                {/* ILOŚĆ */}
+                <input
+                    placeholder="Ilość"
+                    type="number"
+                    value={newAsset.quantity}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, quantity: e.target.value }))
+                    }
+                />
+
+                <button className="save-btn" onClick={handleAddAsset}>
+                    Dodaj aktywo
                 </button>
+                {error && <div className="error-message">{error}</div>}
+            </div>
 
-                {showAssetForm && (
-                    <div className="portfolio-form" style={{ marginTop: "20px" }}>
-                        <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)}>
-                            <option value="crypto">Kryptowaluta</option>
-                            <option value="stock">Akcja</option>
-                            <option value="etf">ETF</option>
-                            <option value="commodity">Surowiec</option>
-                        </select>
-
-                        <div className="symbol-search">
-                            <input
-                                type="text"
-                                placeholder="Wpisz min. 2 litery, np. BTC"
-                                value={symbolQuery}
-                                onChange={(e) => setSymbolQuery(e.target.value)}
-                            />
-                            {symbolQuery.length >= 2 && symbolResults.length === 0 && (
-                                <div className="no-results">Brak wyników</div>
-                            )}
-                            {symbolResults.length > 0 && (
-                                <ul className="symbol-dropdown">
-                                    {symbolResults.map((res) => (
-                                        <li key={res.symbol} onClick={() => handleSelectSymbol(res.symbol, res.name)}>
-                                            <strong>{res.symbol}</strong> – {res.name}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+            <hr />
+            <h3>Aktywa</h3>
+            {assets.length === 0 ? (
+                <p>Brak aktyw&oacute;w.</p>
+            ) : (
+                <div className="portfolios-list">
+                    {assets.map((a) => (
+                        <div key={a.id} className="portfolio-card">
+                            <h4>
+                                {a.symbol.toUpperCase()} – {a.name}
+                            </h4>
+                            <p>Kategoria: {a.category}</p>
+                            <p>
+                                Cena: {a.currentPrice.toFixed(2)} | Ilość: {a.quantity}
+                            </p>
                         </div>
-
-                        <input
-                            type="number"
-                            placeholder="Cena zakupu"
-                            value={purchasePrice}
-                            onChange={(e) => setPurchasePrice(e.target.value)}
-                        />
-
-                        <input
-                            type="number"
-                            placeholder="Ilość"
-                            value={quantity}
-                            onChange={(e) => setQuantity(e.target.value)}
-                        />
-
-                        {currentPrice && <small>Aktualna cena: {currentPrice.toFixed(2)}</small>}
-
-                        <button className="save-btn" onClick={handleAddAsset}>Zapisz aktywo</button>
-                    </div>
-                )}
-            </section>
-
-            <section>
-                <button className="save-btn" onClick={() => setShowDeleteConfirm(!showDeleteConfirm)}>
-                    {showDeleteConfirm ? "Anuluj" : "Usuń portfel"}
-                </button>
-
-                {showDeleteConfirm && (
-                    <div className="portfolio-form" style={{ marginTop: "20px" }}>
-                        <input
-                            type="password"
-                            placeholder="Wpisz hasło"
-                            value={deletePassword}
-                            onChange={(e) => setDeletePassword(e.target.value)}
-                        />
-                        <button className="save-btn" onClick={handleDeletePortfolio}>Potwierdź usunięcie</button>
-                    </div>
-                )}
-            </section>
-
-            {error && <div className="error-message" style={{ marginTop: "20px" }}>{error}</div>}
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

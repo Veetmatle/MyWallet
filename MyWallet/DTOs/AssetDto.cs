@@ -23,6 +23,8 @@ namespace MyWallet.DTOs
 
         [Range(0, double.MaxValue, ErrorMessage = "Ilość musi być liczbą dodatnią.")]
         public decimal Quantity { get; set; }
+        [Required(ErrorMessage = "ID portfela jest wymagane.")]
+        public int PortfolioId { get; set; }
 
         public string? ImagePath { get; set; }
     }
