@@ -225,3 +225,56 @@
     color: inherit;
     display: block;
 }
+
+.symbol-dropdown {
+    background: white;
+    border: 1px solid #ccc;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 4px;
+    list-style: none;
+    padding: 0;
+}
+
+.symbol-dropdown li {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+.symbol-dropdown li:hover {
+    background-color: #f0f0f0;
+}
+
+.symbol-search {
+    position: relative;
+}
+
+.symbol-dropdown {
+    position: absolute;
+    background-color: white;
+    border: 1px solid #ddd;
+    width: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 10;
+    list-style: none;
+    padding: 0;
+    margin: 4px 0 0 0;
+}
+
+.symbol-dropdown li {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.symbol-dropdown li:hover {
+    background-color: #f0f0f0;
+}
+
+.no-results {
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+}
+
