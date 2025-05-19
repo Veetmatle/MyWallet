@@ -1,6 +1,7 @@
-﻿import { useEffect, useState } from "react";
+﻿import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./dashboard.css";
+import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
 
 interface AssetDto {
     id: number;
@@ -20,54 +21,70 @@ interface PortfolioDto {
 }
 
 export default function PortfolioDetails() {
-    const { id } = useParams();
+    const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+
     const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
     const [assets, setAssets] = useState<AssetDto[]>([]);
     const [error, setError] = useState("");
 
-    const [editing, setEditing] = useState(false);
-    const [editName, setEditName] = useState("");
-    const [editDescription, setEditDescription] = useState("");
+    const { hints, fetchHints, clearHints } = useAssetHints();
+    const debounceRef = useRef<number>(0);
 
     const [newAsset, setNewAsset] = useState({
         symbol: "",
         name: "",
-        category: "",
+        category: "stock",
         currentPrice: "",
         quantity: "",
     });
 
-    const [deleteConfirm, setDeleteConfirm] = useState(false);
-    const [password, setPassword] = useState("");
-
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
+    // 1) Pobierz portfel i jego aktywa
     useEffect(() => {
         if (!id) return;
-        fetch(`/api/portfolio/${id}`)
-            .then((res) => res.json())
-            .then((data) => setPortfolio(data))
+
+        fetch(`http://localhost:5210/api/portfolio/${id}`)
+            .then((r) => r.json())
+            .then(setPortfolio)
             .catch(() => setError("Nie udało się pobrać portfela."));
 
-        fetch(`/api/asset/portfolio/${id}`)
-            .then((res) => res.json())
-            .then((data) => setAssets(data))
+        fetch(`http://localhost:5210/api/asset/portfolio/${id}`)
+            .then((r) => r.json())
+            .then(setAssets)
             .catch(() => setError("Nie udało się pobrać aktywów."));
     }, [id]);
 
+    // 2) Kliknięcie na podpowiedź → uzupełnij pola i wyczyść listę
+    const handleSelectHint = (hint: AssetHintDto) => {
+        setNewAsset((prev) => ({
+            ...prev,
+            symbol: hint.symbol,
+            name: hint.name,
+        }));
+        clearHints();
+    };
+
+    // 3) Dodawanie aktywa
     const handleAddAsset = async () => {
+        setError("");
+        const portfolioId = Number(id);
+        if (isNaN(portfolioId)) {
+            setError("Nieprawidłowe ID portfela.");
+            return;
+        }
+        
+
         const payload = {
             symbol: newAsset.symbol,
             name: newAsset.name,
             category: newAsset.category,
             currentPrice: parseFloat(newAsset.currentPrice),
             quantity: parseFloat(newAsset.quantity),
-            portfolioId: parseInt(id || ""),
+            portfolioId,
         };
 
         try {
-            const res = await fetch("/api/asset", {
+            const res = await fetch("http://localhost:5210/api/asset", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
@@ -75,82 +92,26 @@ export default function PortfolioDetails() {
 
             if (res.status === 400) {
                 const data = await res.json();
-                const msg = Object.values(data.errors).flat().join(" ");
-                setError(msg);
+                setError(Object.values(data.errors).flat().join(" "));
                 return;
             }
+            if (!res.ok) throw new Error();
 
-            const added = await res.json();
-            setAssets([...assets, added]);
-            setNewAsset({ symbol: "", name: "", category: "", currentPrice: "", quantity: "" });
-            setError("");
+            const added: AssetDto = await res.json();
+            setAssets((prev) => [...prev, added]);
+            setNewAsset({
+                symbol: "",
+                name: "",
+                category: "stock",
+                currentPrice: "",
+                quantity: "",
+            });
         } catch {
             setError("Błąd podczas dodawania aktywa.");
         }
     };
 
-    const handleDelete = async () => {
-        if (!deleteConfirm || password.length < 3) {
-            setError("Musisz potwierdzić usunięcie i wpisać hasło.");
-            return;
-        }
-
-        const confirmed = window.confirm("Czy na pewno chcesz usunąć ten portfel?");
-        if (!confirmed) return;
-
-        try {
-            const res = await fetch(`/api/portfolio/${id}`, {
-                method: "DELETE",
-            });
-
-            if (!res.ok) throw new Error();
-            navigate("/dashboard");
-        } catch {
-            setError("Nie udało się usunąć portfela.");
-        }
-    };
-
-    const handleEditPortfolio = async () => {
-        if (!editName.trim()) {
-            setError("Nazwa portfela jest wymagana.");
-            return;
-        }
-
-        if (!portfolio) {
-            setError("Nie można edytować nieistniejącego portfela.");
-            return;
-        }
-
-        const updated: PortfolioDto = {
-            id: portfolio.id,
-            name: editName,
-            description: editDescription,
-            createdAt: portfolio.createdAt
-        };
-
-        try {
-            const res = await fetch("/api/portfolio", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updated),
-            });
-
-            if (!res.ok) {
-                const data = await res.json();
-                const msg = data?.errors ? Object.values(data.errors).flat().join(" ") : "Błąd podczas zapisu.";
-                setError(msg);
-                return;
-            }
-
-            setPortfolio(updated);
-            setEditing(false);
-            setError("");
-        } catch {
-            setError("Wystąpił błąd przy aktualizacji.");
-        }
-    };
-
-    if (!portfolio) return <p>Ładowanie...</p>;
+    if (!portfolio) return <p>Ładowanie…</p>;
 
     return (
         <div className="dashboard-content">
@@ -160,106 +121,119 @@ export default function PortfolioDetails() {
             <hr />
             <h3>Dodaj aktywo</h3>
             <div className="portfolio-form">
-                <input
-                    placeholder="Symbol"
-                    value={newAsset.symbol}
-                    onChange={(e) => setNewAsset({ ...newAsset, symbol: e.target.value })}
-                />
+                {/* SYMBOL + lista podpowiedzi */}
+                <div style={{ position: "relative" }}>
+                    <input
+                        placeholder="Symbol"
+                        value={newAsset.symbol}
+                        onChange={(e) => {
+                            const val = e.target.value.trim().toLowerCase();
+                            setNewAsset((prev) => ({ ...prev, symbol: val }));
+
+                            // debounce fetchHints
+                            clearTimeout(debounceRef.current);
+                            if (val.length >= 2 && newAsset.category) {
+                                debounceRef.current = window.setTimeout(() => {
+                                    fetchHints(val, newAsset.category);
+                                }, 300);
+                            }
+                        }}
+                        style={{ width: "100%" }}
+                    />
+                    {hints.length > 0 && (
+                        <ul
+                            className="hints-list"
+                            style={{
+                                position: "absolute",
+                                top: "100%",
+                                left: 0,
+                                right: 0,
+                                background: "white",
+                                border: "1px solid #ccc",
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                margin: 0,
+                                padding: 0,
+                                listStyle: "none",
+                                zIndex: 10,
+                            }}
+                        >
+                            {hints.map((hint) => (
+                                <li
+                                    key={hint.symbol}
+                                    onClick={() => handleSelectHint(hint)}
+                                    style={{ padding: "8px", cursor: "pointer" }}
+                                >
+                                    {hint.symbol} – {hint.name}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+
+                {/* NAZWA */}
                 <input
                     placeholder="Nazwa"
                     value={newAsset.name}
-                    onChange={(e) => setNewAsset({ ...newAsset, name: e.target.value })}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, name: e.target.value }))
+                    }
                 />
+                {/* KATEGORIA */}
                 <input
                     placeholder="Kategoria (np. crypto, stock)"
                     value={newAsset.category}
-                    onChange={(e) => setNewAsset({ ...newAsset, category: e.target.value })}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, category: e.target.value }))
+                    }
                 />
+                {/* CENA */}
                 <input
                     placeholder="Aktualna cena"
                     type="number"
                     value={newAsset.currentPrice}
-                    onChange={(e) => setNewAsset({ ...newAsset, currentPrice: e.target.value })}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({
+                            ...prev,
+                            currentPrice: e.target.value,
+                        }))
+                    }
                 />
+                {/* ILOŚĆ */}
                 <input
                     placeholder="Ilość"
                     type="number"
                     value={newAsset.quantity}
-                    onChange={(e) => setNewAsset({ ...newAsset, quantity: e.target.value })}
+                    onChange={(e) =>
+                        setNewAsset((prev) => ({ ...prev, quantity: e.target.value }))
+                    }
                 />
+
                 <button className="save-btn" onClick={handleAddAsset}>
                     Dodaj aktywo
                 </button>
+                {error && <div className="error-message">{error}</div>}
             </div>
 
             <hr />
             <h3>Aktywa</h3>
             {assets.length === 0 ? (
-                <p>Brak aktywów.</p>
+                <p>Brak aktyw&oacute;w.</p>
             ) : (
                 <div className="portfolios-list">
                     {assets.map((a) => (
                         <div key={a.id} className="portfolio-card">
-                            <h4>{a.symbol} – {a.name}</h4>
+                            <h4>
+                                {a.symbol.toUpperCase()} – {a.name}
+                            </h4>
                             <p>Kategoria: {a.category}</p>
-                            <p>Cena: {a.currentPrice.toFixed(2)} | Ilość: {a.quantity}</p>
+                            <p>
+                                Cena: {a.currentPrice.toFixed(2)} | Ilość: {a.quantity}
+                            </p>
                         </div>
                     ))}
                 </div>
             )}
-
-            <hr />
-            <h3>Edytuj portfel</h3>
-            {!editing ? (
-                <button className="save-btn" onClick={() => {
-                    setEditName(portfolio.name);
-                    setEditDescription(portfolio.description || "");
-                    setEditing(true);
-                }}>
-                    Edytuj portfel
-                </button>
-            ) : (
-                <div className="portfolio-form">
-                    <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        placeholder="Nazwa portfela"
-                    />
-                    <input
-                        value={editDescription}
-                        onChange={(e) => setEditDescription(e.target.value)}
-                        placeholder="Opis portfela"
-                    />
-                    <button className="save-btn" onClick={handleEditPortfolio}>
-                        Zapisz zmiany
-                    </button>
-                    <button onClick={() => setEditing(false)}>Anuluj</button>
-                </div>
-            )}
-
-            <hr />
-            <h3>Usuń portfel</h3>
-            <div className="portfolio-form">
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={deleteConfirm}
-                        onChange={(e) => setDeleteConfirm(e.target.checked)}
-                    />
-                    Potwierdzam usunięcie
-                </label>
-                <input
-                    type="password"
-                    placeholder="Wpisz hasło"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
-                <button className="save-btn" onClick={handleDelete}>
-                    Usuń portfel
-                </button>
-            </div>
-
-            {error && <div className="error-message">{error}</div>}
         </div>
     );
 }

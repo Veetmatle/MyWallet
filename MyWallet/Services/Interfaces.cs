@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using MyWallet.Models;
 namespace MyWallet.Services
 {
     public interface IUserService
@@ -69,6 +69,7 @@ namespace MyWallet.Services
 
     public interface IExternalApiService
     {
+        Task<IEnumerable<AssetHintDto>> SearchAssetsAsync(string query, string category);
         Task<decimal> GetCurrentPriceAsync(string symbol, string category);
         Task<Dictionary<string, decimal>> GetMultipleCurrentPricesAsync(IEnumerable<string> symbols, string category);
         Task<Dictionary<DateTime, decimal>> GetHistoricalPricesAsync(string symbol, string category, DateTime startDate, DateTime endDate);
