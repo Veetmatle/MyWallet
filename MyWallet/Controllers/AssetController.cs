@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿// AssetController.cs
+using Microsoft.AspNetCore.Mvc;
 using MyWallet.DTOs;
 using MyWallet.Models;
 using MyWallet.Services;
@@ -14,25 +15,51 @@ namespace MyWallet.Controllers
     [Route("api/[controller]")]
     public class AssetController : ControllerBase
     {
-        
-        [HttpGet("search")]
-        public async Task<IActionResult> Search([FromQuery] string category, [FromQuery] string query, [FromServices] IExternalApiService externalApi)
-        {
-            if (string.IsNullOrWhiteSpace(query))
-                return BadRequest("Query nie może być puste.");
-
-            var hints = await externalApi.SearchAssetsAsync(query, category);
-            return Ok(hints);
-        }
+        private readonly IExternalApiService _externalApi;
         private readonly IAssetService _assetService;
         private readonly AssetMapper _assetMapper;
 
-        public AssetController(IAssetService assetService, AssetMapper assetMapper)
+        public AssetController(
+            IExternalApiService externalApi,
+            IAssetService assetService,
+            AssetMapper assetMapper)
         {
+            _externalApi  = externalApi;
             _assetService = assetService;
-            _assetMapper = assetMapper;
+            _assetMapper  = assetMapper;
         }
 
+        // GET api/asset/search?category={category}&query={query}
+        [HttpGet("search")]
+        public async Task<IActionResult> Search(
+            [FromQuery] string category,
+            [FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return BadRequest("Query nie może być puste.");
+            if (string.IsNullOrWhiteSpace(category))
+                return BadRequest("Category nie może być pusta.");
+
+            var hints = await _externalApi.SearchAssetsAsync(query, category);
+            return Ok(hints);
+        }
+
+        // GET api/asset/price?category={category}&symbol={symbol}
+        [HttpGet("price")]
+        public async Task<IActionResult> GetPrice(
+            [FromQuery] string category,
+            [FromQuery] string symbol)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+                return BadRequest("Category nie może być pusta.");
+            if (string.IsNullOrWhiteSpace(symbol))
+                return BadRequest("Symbol nie może być pusty.");
+
+            var price = await _externalApi.GetCurrentPriceAsync(symbol, category);
+            return Ok(price);
+        }
+
+        // GET api/asset/portfolio/{portfolioId}
         [HttpGet("portfolio/{portfolioId}")]
         public async Task<IActionResult> GetAssetsByPortfolio(int portfolioId)
         {
@@ -41,52 +68,56 @@ namespace MyWallet.Controllers
             return Ok(dtoList);
         }
 
+        // GET api/asset/{id}
         [HttpGet("{id}")]
         public async Task<IActionResult> GetAssetById(int id)
         {
             var asset = await _assetService.GetAssetByIdAsync(id);
             if (asset == null)
                 return NotFound();
-
-            var dto = _assetMapper.ToDto(asset);
-            return Ok(dto);
+            return Ok(_assetMapper.ToDto(asset));
         }
 
+        // POST api/asset
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AssetDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState); // ✅ WALIDACJA
+                return BadRequest(ModelState);
 
-            var model = _assetMapper.ToModel(dto);
+            var model   = _assetMapper.ToModel(dto);
             var created = await _assetService.CreateAssetAsync(model);
-            return CreatedAtAction(nameof(GetAssetById), new { id = created.Id }, _assetMapper.ToDto(created));
+            return CreatedAtAction(
+                nameof(GetAssetById),
+                new { id = created.Id },
+                _assetMapper.ToDto(created));
         }
 
+        // PUT api/asset
         [HttpPut]
         public async Task<IActionResult> Update([FromBody] AssetDto dto)
         {
             if (!ModelState.IsValid)
-                return BadRequest(ModelState); // ✅ WALIDACJA
+                return BadRequest(ModelState);
 
-            var model = _assetMapper.ToModel(dto);
+            var model   = _assetMapper.ToModel(dto);
             var success = await _assetService.UpdateAssetAsync(model);
             if (!success)
                 return NotFound();
-
             return Ok("Aktywo zostało zaktualizowane.");
         }
 
+        // DELETE api/asset/{id}
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
             var success = await _assetService.DeleteAssetAsync(id);
             if (!success)
                 return NotFound();
-
             return Ok("Aktywo zostało usunięte.");
         }
 
+        // PUT api/asset/portfolio/{portfolioId}/update-prices
         [HttpPut("portfolio/{portfolioId}/update-prices")]
         public async Task<IActionResult> UpdateAssetPrices(int portfolioId)
         {
@@ -94,6 +125,7 @@ namespace MyWallet.Controllers
             return Ok("Ceny aktywów zaktualizowane.");
         }
 
+        // GET api/asset/{id}/value
         [HttpGet("{id}/value")]
         public async Task<IActionResult> GetAssetCurrentValue(int id)
         {
@@ -101,6 +133,7 @@ namespace MyWallet.Controllers
             return Ok(value);
         }
 
+        // GET api/asset/{id}/profitloss
         [HttpGet("{id}/profitloss")]
         public async Task<IActionResult> GetAssetProfitLoss(int id)
         {
@@ -108,13 +141,18 @@ namespace MyWallet.Controllers
             return Ok(profitLoss);
         }
 
+        // GET api/asset/{id}/history?start=yyyy-MM-dd&end=yyyy-MM-dd
         [HttpGet("{id}/history")]
-        public async Task<IActionResult> GetAssetPriceHistory(int id, [FromQuery] DateTime start, [FromQuery] DateTime end)
+        public async Task<IActionResult> GetAssetPriceHistory(
+            int id,
+            [FromQuery] DateTime start,
+            [FromQuery] DateTime end)
         {
             var history = await _assetService.GetAssetPriceHistoryAsync(id, start, end);
             return Ok(history);
         }
 
+        // POST api/asset/{id}/upload-image
         [HttpPost("{id}/upload-image")]
         public async Task<IActionResult> UploadImage(int id, [FromForm] IFormFile file)
         {
@@ -125,17 +163,17 @@ namespace MyWallet.Controllers
             if (asset == null)
                 return NotFound("Aktywo nie istnieje.");
 
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/uploads/assets");
+            var uploadsFolder = Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "wwwroot/uploads/assets");
             Directory.CreateDirectory(uploadsFolder);
 
             var extension = Path.GetExtension(file.FileName);
-            var fileName = $"asset_{id}_{Guid.NewGuid()}{extension}";
-            var filePath = Path.Combine(uploadsFolder, fileName);
+            var fileName  = $"asset_{id}_{Guid.NewGuid()}{extension}";
+            var filePath  = Path.Combine(uploadsFolder, fileName);
 
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
+            using var stream = new FileStream(filePath, FileMode.Create);
+            await file.CopyToAsync(stream);
 
             asset.ImagePath = $"uploads/assets/{fileName}";
             await _assetService.UpdateAssetAsync(asset);

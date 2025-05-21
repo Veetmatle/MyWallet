@@ -1,5 +1,6 @@
-﻿import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+﻿// src/pages/PortfolioDetails.tsx
+import { useEffect, useState, useRef } from "react";
+import { useParams } from "react-router-dom";
 import "./dashboard.css";
 import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
 
@@ -8,8 +9,10 @@ interface AssetDto {
     symbol: string;
     name: string;
     category: string;
-    currentPrice: number;
+    purchasePrice: number;    // cena zakupu za sztukę
+    currentPrice: number;     // aktualna cena (live dla krypto)
     quantity: number;
+    currentValue: number;     // quantity × currentPrice
     imagePath?: string;
 }
 
@@ -20,51 +23,107 @@ interface PortfolioDto {
     createdAt: string;
 }
 
+const ASSET_CATEGORIES = [
+    { label: "Akcje", value: "stock" },
+    { label: "ETF", value: "etf" },
+    { label: "Kryptowaluty", value: "cryptocurrency" },
+];
+
 export default function PortfolioDetails() {
     const { id } = useParams<{ id: string }>();
-    const navigate = useNavigate();
-
     const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
     const [assets, setAssets] = useState<AssetDto[]>([]);
     const [error, setError] = useState("");
-
     const { hints, fetchHints, clearHints } = useAssetHints();
     const debounceRef = useRef<number>(0);
 
     const [newAsset, setNewAsset] = useState({
         symbol: "",
         name: "",
-        category: "stock",
+        category: ASSET_CATEGORIES[0].value,
         currentPrice: "",
         quantity: "",
     });
 
-    // 1) Pobierz portfel i jego aktywa
+    // Fetch portfolio and existing assets
     useEffect(() => {
         if (!id) return;
 
-        fetch(`http://localhost:5210/api/portfolio/${id}`)
+        fetch(`/api/portfolio/${id}`)
             .then((r) => r.json())
             .then(setPortfolio)
             .catch(() => setError("Nie udało się pobrać portfela."));
 
-        fetch(`http://localhost:5210/api/asset/portfolio/${id}`)
+        fetch(`/api/asset/portfolio/${id}`)
             .then((r) => r.json())
-            .then(setAssets)
+            .then((data: any[]) => {
+                const arr: AssetDto[] = data.map((a) => ({
+                    id: a.id,
+                    symbol: a.symbol,
+                    name: a.name,
+                    category: a.category,
+                    purchasePrice: a.currentPrice,
+                    currentPrice: a.currentPrice,
+                    quantity: a.quantity,
+                    currentValue: a.currentPrice * a.quantity,
+                    imagePath: a.imagePath,
+                }));
+                setAssets(arr);
+            })
             .catch(() => setError("Nie udało się pobrać aktywów."));
     }, [id]);
 
-    // 2) Kliknięcie na podpowiedź → uzupełnij pola i wyczyść listę
-    const handleSelectHint = (hint: AssetHintDto) => {
-        setNewAsset((prev) => ({
-            ...prev,
-            symbol: hint.symbol,
-            name: hint.name,
-        }));
+    // Auto-refresh crypto prices every 5 minutes
+    useEffect(() => {
+        const timers: NodeJS.Timeout[] = [];
+        assets.forEach((asset) => {
+            if (asset.category === "cryptocurrency") {
+                const update = async () => {
+                    try {
+                        const res = await fetch(
+                            `/api/asset/price?category=cryptocurrency&symbol=${encodeURIComponent(
+                                asset.symbol
+                            )}`
+                        );
+                        if (!res.ok) throw new Error();
+                        const price: number = await res.json();
+                        setAssets((prev) =>
+                            prev.map((x) =>
+                                x.id === asset.id
+                                    ? { ...x, currentPrice: price, currentValue: price * x.quantity }
+                                    : x
+                            )
+                        );
+                    } catch {
+                        console.warn(`Błąd pobierania ceny dla ${asset.symbol}`);
+                    }
+                };
+                update();
+                timers.push(setInterval(update, 5 * 60 * 1000));
+            }
+        });
+        return () => timers.forEach(clearInterval);
+    }, [assets]);
+
+    // Handlers
+    const handleSelectHint = async (hint: AssetHintDto) => {
+        const category = newAsset.category;
+        setNewAsset((p) => ({ ...p, symbol: hint.symbol, name: hint.name }));
         clearHints();
+        try {
+            const res = await fetch(
+                `/api/asset/price?category=${encodeURIComponent(
+                    category
+                )}&symbol=${encodeURIComponent(hint.symbol)}`
+            );
+            if (!res.ok) throw new Error();
+            const price: number = await res.json();
+            setNewAsset((p) => ({ ...p, currentPrice: price.toString() }));
+        } catch {
+            console.error("Błąd pobierania ceny podpowiedzi");
+        }
     };
 
-    // 3) Dodawanie aktywa
     const handleAddAsset = async () => {
         setError("");
         const portfolioId = Number(id);
@@ -72,37 +131,45 @@ export default function PortfolioDetails() {
             setError("Nieprawidłowe ID portfela.");
             return;
         }
-        
-
+        const purchase = parseFloat(newAsset.currentPrice) || 0;
+        const qty = parseFloat(newAsset.quantity) || 0;
         const payload = {
             symbol: newAsset.symbol,
             name: newAsset.name,
             category: newAsset.category,
-            currentPrice: parseFloat(newAsset.currentPrice),
-            quantity: parseFloat(newAsset.quantity),
+            currentPrice: purchase,
+            quantity: qty,
             portfolioId,
         };
-
         try {
-            const res = await fetch("http://localhost:5210/api/asset", {
+            const res = await fetch("/api/asset", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
-
             if (res.status === 400) {
                 const data = await res.json();
                 setError(Object.values(data.errors).flat().join(" "));
                 return;
             }
             if (!res.ok) throw new Error();
-
-            const added: AssetDto = await res.json();
+            const a: any = await res.json();
+            const added: AssetDto = {
+                id: a.id,
+                symbol: a.symbol,
+                name: a.name,
+                category: a.category,
+                purchasePrice: a.currentPrice,
+                currentPrice: a.currentPrice,
+                quantity: a.quantity,
+                currentValue: a.currentPrice * a.quantity,
+                imagePath: a.imagePath,
+            };
             setAssets((prev) => [...prev, added]);
             setNewAsset({
                 symbol: "",
                 name: "",
-                category: "stock",
+                category: newAsset.category,
                 currentPrice: "",
                 quantity: "",
             });
@@ -111,129 +178,206 @@ export default function PortfolioDetails() {
         }
     };
 
+    const handleDelete = async (assetId: number) => {
+        if (!window.confirm("Czy na pewno chcesz usunąć to aktywo?")) return;
+        try {
+            const res = await fetch(`/api/asset/${assetId}`, { method: "DELETE" });
+            if (!res.ok) throw new Error();
+            setAssets((prev) => prev.filter((a) => a.id !== assetId));
+        } catch {
+            alert("Nie udało się usunąć aktywa.");
+        }
+    };
+
+    const handleRefresh = async (assetId: number) => {
+        const asset = assets.find((a) => a.id === assetId);
+        if (!asset) return;
+        try {
+            const res = await fetch(
+                `/api/asset/price?category=${encodeURIComponent(
+                    asset.category
+                )}&symbol=${encodeURIComponent(asset.symbol)}`
+            );
+            if (!res.ok) throw new Error();
+            const price: number = await res.json();
+            setAssets((prev) =>
+                prev.map((x) =>
+                    x.id === assetId
+                        ? { ...x, currentPrice: price, currentValue: price * x.quantity }
+                        : x
+                )
+            );
+        } catch {
+            alert("Nie udało się odświeżyć ceny.");
+        }
+    };
+
+    // Compute total portfolio value
+    const totalValue = assets.reduce((sum, a) => sum + a.currentValue, 0).toFixed(2);
+
+    const computeTotal = () => {
+        const purchase = parseFloat(newAsset.currentPrice) || 0;
+        const qty = parseFloat(newAsset.quantity) || 0;
+        return (purchase * qty).toFixed(2);
+    };
+
     if (!portfolio) return <p>Ładowanie…</p>;
 
     return (
         <div className="dashboard-content">
-            <h2>{portfolio.name}</h2>
+            <div className="portfolio-header">
+                <h2>{portfolio.name}</h2>
+                <div className="portfolio-value">
+                    Wartość portfela: {totalValue}
+                </div>
+            </div>
             <p>{portfolio.description}</p>
+            <hr />
+
+            <h3>Aktywa</h3>
+            {assets.length === 0 ? (
+                <p>Brak aktywów.</p>
+            ) : (
+                <div className="portfolios-list">
+                    {assets.map((a) => (
+                        <div key={a.id} className="portfolio-card">
+                            <button
+                                className="refresh-btn"
+                                onClick={() => handleRefresh(a.id)}
+                            >
+                                ⟳
+                            </button>
+                            <button
+                                className="delete-btn"
+                                onClick={() => handleDelete(a.id)}
+                            >
+                                ×
+                            </button>
+                            <h4>
+                                {a.symbol.toUpperCase()} — {a.name}
+                            </h4>
+                            <p>Kategoria: {a.category}</p>
+                            <p>Cena zakupu: {a.purchasePrice.toFixed(2)}</p>
+                            <p>Cena aktualna: {a.currentPrice.toFixed(2)}</p>
+                            <p>Ilość: {a.quantity}</p>
+                            <p>Wartość: {a.currentValue.toFixed(2)}</p>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <hr />
             <h3>Dodaj aktywo</h3>
             <div className="portfolio-form">
-                {/* SYMBOL + lista podpowiedzi */}
+                {/* 1. Klasa aktywów */}
+                <div>
+                    <label htmlFor="category">Klasa aktywów</label>
+                    <select
+                        id="category"
+                        value={newAsset.category}
+                        onChange={(e) => {
+                            setNewAsset((p) => ({
+                                ...p,
+                                category: e.target.value,
+                                symbol: "",
+                                name: "",
+                                currentPrice: "",
+                                quantity: "",
+                            }));
+                            clearHints();
+                        }}
+                    >
+                        {ASSET_CATEGORIES.map((c) => (
+                            <option key={c.value} value={c.value}>
+                                {c.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* 2. Symbol + podpowiedzi */}
                 <div style={{ position: "relative" }}>
+                    <label htmlFor="symbol">Symbol</label>
                     <input
+                        id="symbol"
                         placeholder="Symbol"
                         value={newAsset.symbol}
                         onChange={(e) => {
                             const val = e.target.value.trim().toLowerCase();
-                            setNewAsset((prev) => ({ ...prev, symbol: val }));
-
-                            // debounce fetchHints
+                            setNewAsset((p) => ({ ...p, symbol: val }));
                             clearTimeout(debounceRef.current);
-                            if (val.length >= 2 && newAsset.category) {
-                                debounceRef.current = window.setTimeout(() => {
-                                    fetchHints(val, newAsset.category);
-                                }, 300);
+                            if (val.length >= 2) {
+                                debounceRef.current = window.setTimeout(
+                                    () => fetchHints(val, newAsset.category),
+                                    300
+                                );
                             }
                         }}
-                        style={{ width: "100%" }}
                     />
                     {hints.length > 0 && (
-                        <ul
-                            className="hints-list"
-                            style={{
-                                position: "absolute",
-                                top: "100%",
-                                left: 0,
-                                right: 0,
-                                background: "white",
-                                border: "1px solid #ccc",
-                                maxHeight: 200,
-                                overflowY: "auto",
-                                margin: 0,
-                                padding: 0,
-                                listStyle: "none",
-                                zIndex: 10,
-                            }}
-                        >
-                            {hints.map((hint) => (
-                                <li
-                                    key={hint.symbol}
-                                    onClick={() => handleSelectHint(hint)}
-                                    style={{ padding: "8px", cursor: "pointer" }}
-                                >
-                                    {hint.symbol} – {hint.name}
+                        <ul className="hints-list">
+                            {hints.map((h) => (
+                                <li key={h.symbol} onClick={() => handleSelectHint(h)}>
+                                    <strong>{h.symbol}</strong> — {h.name}
                                 </li>
                             ))}
                         </ul>
                     )}
                 </div>
 
-                {/* NAZWA */}
-                <input
-                    placeholder="Nazwa"
-                    value={newAsset.name}
-                    onChange={(e) =>
-                        setNewAsset((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                />
-                {/* KATEGORIA */}
-                <input
-                    placeholder="Kategoria (np. crypto, stock)"
-                    value={newAsset.category}
-                    onChange={(e) =>
-                        setNewAsset((prev) => ({ ...prev, category: e.target.value }))
-                    }
-                />
-                {/* CENA */}
-                <input
-                    placeholder="Aktualna cena"
-                    type="number"
-                    value={newAsset.currentPrice}
-                    onChange={(e) =>
-                        setNewAsset((prev) => ({
-                            ...prev,
-                            currentPrice: e.target.value,
-                        }))
-                    }
-                />
-                {/* ILOŚĆ */}
-                <input
-                    placeholder="Ilość"
-                    type="number"
-                    value={newAsset.quantity}
-                    onChange={(e) =>
-                        setNewAsset((prev) => ({ ...prev, quantity: e.target.value }))
-                    }
-                />
+                {/* 3. Nazwa */}
+                <div>
+                    <label htmlFor="name">Nazwa</label>
+                    <input
+                        id="name"
+                        placeholder="Nazwa"
+                        value={newAsset.name}
+                        onChange={(e) =>
+                            setNewAsset((p) => ({ ...p, name: e.target.value }))
+                        }
+                    />
+                </div>
 
+                {/* 4. Cena zakupu */}
+                <div>
+                    <label htmlFor="price">Cena zakupu</label>
+                    <input
+                        id="price"
+                        type="number"
+                        placeholder="0.00"
+                        value={newAsset.currentPrice}
+                        onChange={(e) =>
+                            setNewAsset((p) => ({ ...p, currentPrice: e.target.value }))
+                        }
+                    />
+                </div>
+
+                {/* 5. Ilość */}
+                <div>
+                    <label htmlFor="quantity">Ilość</label>
+                    <input
+                        id="quantity"
+                        type="number"
+                        placeholder="0"
+                        value={newAsset.quantity}
+                        onChange={(e) =>
+                            setNewAsset((p) => ({ ...p, quantity: e.target.value }))
+                        }
+                    />
+                </div>
+
+                {/* 6. Wartość (tylko do odczytu) */}
+                <div>
+                    <label htmlFor="total">Wartość</label>
+                    <input id="total" type="text" value={computeTotal()} disabled />
+                </div>
+
+                {/* 7. Dodaj aktywo */}
                 <button className="save-btn" onClick={handleAddAsset}>
                     Dodaj aktywo
                 </button>
                 {error && <div className="error-message">{error}</div>}
             </div>
-
-            <hr />
-            <h3>Aktywa</h3>
-            {assets.length === 0 ? (
-                <p>Brak aktyw&oacute;w.</p>
-            ) : (
-                <div className="portfolios-list">
-                    {assets.map((a) => (
-                        <div key={a.id} className="portfolio-card">
-                            <h4>
-                                {a.symbol.toUpperCase()} – {a.name}
-                            </h4>
-                            <p>Kategoria: {a.category}</p>
-                            <p>
-                                Cena: {a.currentPrice.toFixed(2)} | Ilość: {a.quantity}
-                            </p>
-                        </div>
-                    ))}
-                </div>
-            )}
         </div>
     );
 }
