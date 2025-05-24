@@ -3,8 +3,14 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using MyWallet.Models;
+using MyWallet.DTOs;
 namespace MyWallet.Services
 {
+    public interface IOrderService
+    {
+        /// <summary>Lista otwartych zleceń do raportu.</summary>
+        Task<IEnumerable<OrderDto>> GetOpenOrdersAsync();
+    }
     public interface IUserService
     {
         Task<User> GetUserByIdAsync(int id);
@@ -74,4 +80,6 @@ namespace MyWallet.Services
         Task<Dictionary<string, decimal>> GetMultipleCurrentPricesAsync(IEnumerable<string> symbols, string category);
         Task<Dictionary<DateTime, decimal>> GetHistoricalPricesAsync(string symbol, string category, DateTime startDate, DateTime endDate);
     }
+    
+
 }

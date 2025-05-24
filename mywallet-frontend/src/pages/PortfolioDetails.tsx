@@ -1,5 +1,5 @@
 ﻿// src/pages/PortfolioDetails.tsx
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import "./dashboard.css";
 import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
@@ -45,10 +45,9 @@ export default function PortfolioDetails() {
         quantity: "",
     });
 
-    // Fetch portfolio and existing assets
+    // 1) Pobierz portfel i aktywa
     useEffect(() => {
         if (!id) return;
-
         fetch(`/api/portfolio/${id}`)
             .then((r) => r.json())
             .then(setPortfolio)
@@ -57,7 +56,7 @@ export default function PortfolioDetails() {
         fetch(`/api/asset/portfolio/${id}`)
             .then((r) => r.json())
             .then((data: any[]) => {
-                const arr: AssetDto[] = data.map((a) => ({
+                const mapped: AssetDto[] = data.map((a) => ({
                     id: a.id,
                     symbol: a.symbol,
                     name: a.name,
@@ -68,44 +67,53 @@ export default function PortfolioDetails() {
                     currentValue: a.currentPrice * a.quantity,
                     imagePath: a.imagePath,
                 }));
-                setAssets(arr);
+                setAssets(mapped);
             })
             .catch(() => setError("Nie udało się pobrać aktywów."));
     }, [id]);
 
-    // Auto-refresh crypto prices every 5 minutes
-    useEffect(() => {
-        const timers: NodeJS.Timeout[] = [];
-        assets.forEach((asset) => {
-            if (asset.category === "cryptocurrency") {
-                const update = async () => {
-                    try {
-                        const res = await fetch(
-                            `/api/asset/price?category=cryptocurrency&symbol=${encodeURIComponent(
-                                asset.symbol
-                            )}`
-                        );
-                        if (!res.ok) throw new Error();
-                        const price: number = await res.json();
-                        setAssets((prev) =>
-                            prev.map((x) =>
-                                x.id === asset.id
-                                    ? { ...x, currentPrice: price, currentValue: price * x.quantity }
-                                    : x
-                            )
-                        );
-                    } catch {
-                        console.warn(`Błąd pobierania ceny dla ${asset.symbol}`);
-                    }
-                };
-                update();
-                timers.push(setInterval(update, 5 * 60 * 1000));
-            }
-        });
-        return () => timers.forEach(clearInterval);
-    }, [assets]);
+    // 2) Grupowane autoodświeżanie cen krypto co 5 minut
+    const cryptoSymbols = useMemo(
+        () =>
+            assets
+                .filter((a) => a.category === "cryptocurrency")
+                .map((a) => a.symbol),
+        [assets]
+    );
 
-    // Handlers
+    useEffect(() => {
+        if (cryptoSymbols.length === 0) return;
+        const updateAll = async () => {
+            try {
+                const ids = cryptoSymbols.join(",");
+                const res = await fetch(
+                    `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`
+                );
+                if (!res.ok) throw new Error();
+                const data: Record<string, { usd: number }> = await res.json();
+                setAssets((prev) =>
+                    prev.map((a) => {
+                        if (a.category === "cryptocurrency" && data[a.symbol]) {
+                            const price = data[a.symbol].usd;
+                            return {
+                                ...a,
+                                currentPrice: price,
+                                currentValue: price * a.quantity,
+                            };
+                        }
+                        return a;
+                    })
+                );
+            } catch {
+                console.warn("Błąd grupowego odświeżania cen krypto");
+            }
+        };
+        updateAll();
+        const timer = setInterval(updateAll, 5 * 60 * 1000);
+        return () => clearInterval(timer);
+    }, [cryptoSymbols]);
+
+    // 3) Selektor podpowiedzi
     const handleSelectHint = async (hint: AssetHintDto) => {
         const category = newAsset.category;
         setNewAsset((p) => ({ ...p, symbol: hint.symbol, name: hint.name }));
@@ -124,6 +132,7 @@ export default function PortfolioDetails() {
         }
     };
 
+    // 4) Dodawanie aktywa
     const handleAddAsset = async () => {
         setError("");
         const portfolioId = Number(id);
@@ -133,6 +142,7 @@ export default function PortfolioDetails() {
         }
         const purchase = parseFloat(newAsset.currentPrice) || 0;
         const qty = parseFloat(newAsset.quantity) || 0;
+
         const payload = {
             symbol: newAsset.symbol,
             name: newAsset.name,
@@ -141,6 +151,7 @@ export default function PortfolioDetails() {
             quantity: qty,
             portfolioId,
         };
+
         try {
             const res = await fetch("/api/asset", {
                 method: "POST",
@@ -178,6 +189,7 @@ export default function PortfolioDetails() {
         }
     };
 
+    // 5) Usuwanie
     const handleDelete = async (assetId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to aktywo?")) return;
         try {
@@ -189,6 +201,7 @@ export default function PortfolioDetails() {
         }
     };
 
+    // 6) Ręczne odświeżenie pojedynczego
     const handleRefresh = async (assetId: number) => {
         const asset = assets.find((a) => a.id === assetId);
         if (!asset) return;
@@ -212,9 +225,12 @@ export default function PortfolioDetails() {
         }
     };
 
-    // Compute total portfolio value
-    const totalValue = assets.reduce((sum, a) => sum + a.currentValue, 0).toFixed(2);
+    // 7) Wartość portfela
+    const totalValue = assets
+        .reduce((sum, a) => sum + a.currentValue, 0)
+        .toFixed(2);
 
+    // 8) Wartość podglądu w formularzu
     const computeTotal = () => {
         const purchase = parseFloat(newAsset.currentPrice) || 0;
         const qty = parseFloat(newAsset.quantity) || 0;
@@ -227,9 +243,7 @@ export default function PortfolioDetails() {
         <div className="dashboard-content">
             <div className="portfolio-header">
                 <h2>{portfolio.name}</h2>
-                <div className="portfolio-value">
-                    Wartość portfela: {totalValue}
-                </div>
+                <div className="portfolio-value">Wartość portfela: {totalValue}</div>
             </div>
             <p>{portfolio.description}</p>
             <hr />
