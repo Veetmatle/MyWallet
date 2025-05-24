@@ -18,15 +18,18 @@ namespace MyWallet.Controllers
         private readonly IExternalApiService _externalApi;
         private readonly IAssetService _assetService;
         private readonly AssetMapper _assetMapper;
+        private readonly IExternalApiService  _external;
 
         public AssetController(
             IExternalApiService externalApi,
             IAssetService assetService,
-            AssetMapper assetMapper)
+            AssetMapper assetMapper,
+            IExternalApiService external)
         {
             _externalApi  = externalApi;
             _assetService = assetService;
             _assetMapper  = assetMapper;
+            _external     = external;  
         }
 
         // GET api/asset/search?category={category}&query={query}
@@ -46,16 +49,12 @@ namespace MyWallet.Controllers
 
         // GET api/asset/price?category={category}&symbol={symbol}
         [HttpGet("price")]
-        public async Task<IActionResult> GetPrice(
-            [FromQuery] string category,
-            [FromQuery] string symbol)
+        public async Task<IActionResult> GetPrice([FromQuery] string category, [FromQuery] string symbol)
         {
-            if (string.IsNullOrWhiteSpace(category))
-                return BadRequest("Category nie może być pusta.");
-            if (string.IsNullOrWhiteSpace(symbol))
-                return BadRequest("Symbol nie może być pusty.");
+            if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(symbol))
+                return BadRequest("category and symbol are required.");
 
-            var price = await _externalApi.GetCurrentPriceAsync(symbol, category);
+            var price = await _external.GetCurrentPriceAsync(symbol, category);
             return Ok(price);
         }
 
@@ -179,6 +178,16 @@ namespace MyWallet.Controllers
             await _assetService.UpdateAssetAsync(asset);
 
             return Ok(new { imageUrl = asset.ImagePath });
+        }
+        
+        [HttpGet("hints")]
+        public async Task<IActionResult> GetHints([FromQuery] string category, [FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(query))
+                return BadRequest("category and query are required.");
+
+            var hints = await _external.SearchAssetsAsync(query, category);
+            return Ok(hints);
         }
     }
 }

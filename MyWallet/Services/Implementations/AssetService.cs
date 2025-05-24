@@ -11,158 +11,160 @@ namespace MyWallet.Services.Implementations
 {
     public class AssetService : IAssetService
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IExternalApiService _externalApiService;
+        private readonly ApplicationDbContext _db;
+        private readonly IExternalApiService  _prices;
 
-        public AssetService(ApplicationDbContext context, IExternalApiService externalApiService)
+        public AssetService(ApplicationDbContext db, IExternalApiService prices)
         {
-            _context = context;
-            _externalApiService = externalApiService;
+            _db     = db;
+            _prices = prices;
         }
 
-        public async Task<IEnumerable<Asset>> GetPortfolioAssetsAsync(int portfolioId)
-        {
-            return await _context.Assets
-                .Where(a => a.PortfolioId == portfolioId)
-                .ToListAsync();
-        }
+        /* -------------------------------------------------------------- */
+        /* 1.  POBIERANIE                                                 */
+        /* -------------------------------------------------------------- */
 
-        public async Task<Asset> GetAssetByIdAsync(int id)
-        {
-            return await _context.Assets
-                .Include(a => a.PriceHistory)
-                .FirstOrDefaultAsync(a => a.Id == id);
-        }
+        public async Task<IEnumerable<Asset>> GetPortfolioAssetsAsync(int portfolioId) =>
+            await _db.Assets.Where(a => a.PortfolioId == portfolioId).ToListAsync();
+
+        public async Task<Asset?> GetAssetByIdAsync(int id) =>
+            await _db.Assets.Include(a => a.PriceHistory).FirstOrDefaultAsync(a => a.Id == id);
+
+        /* -------------------------------------------------------------- */
+        /* 2.  TWORZENIE / DOKUPKA                                        */
+        /* -------------------------------------------------------------- */
 
         public async Task<Asset> CreateAssetAsync(Asset asset)
         {
-            // Pobierz aktualną cenę z API
-            asset.CurrentPrice = await _externalApiService.GetCurrentPriceAsync(asset.Symbol, asset.Category);
-            asset.InitialPrice = asset.CurrentPrice;
-            
-            _context.Assets.Add(asset);
-            await _context.SaveChangesAsync();
+            asset.Symbol = asset.Symbol.ToLower();                    // standaryzacja
+            asset.CurrentPrice = await _prices.GetCurrentPriceAsync(asset.Symbol, asset.Category);
 
-            // Zapisz pierwszą historię ceny
-            await RecordAssetPriceHistoryAsync(asset.Id, asset.CurrentPrice);
+            var existing = await _db.Assets.FirstOrDefaultAsync(a =>
+                a.PortfolioId == asset.PortfolioId &&
+                a.Symbol      == asset.Symbol      &&
+                a.Category    == asset.Category);
 
-            return asset;
-        }
-
-        public async Task<bool> UpdateAssetAsync(Asset asset)
-        {
-            var existingAsset = await _context.Assets.FindAsync(asset.Id);
-            if (existingAsset == null)
+            if (existing is null)
             {
-                return false;
+                asset.AveragePurchasePrice = asset.CurrentPrice;
+                asset.InvestedAmount       = asset.CurrentPrice * asset.Quantity;
+                asset.LastUpdated          = DateTime.UtcNow;
+
+                _db.Assets.Add(asset);
+                await _db.SaveChangesAsync();
+                await RecordAssetPriceHistoryAsync(asset.Id, asset.CurrentPrice);
+                return asset;
             }
 
-            // Aktualizujemy tylko wybrane pola
-            existingAsset.Name = asset.Name;
-            existingAsset.Symbol = asset.Symbol;
-            existingAsset.Category = asset.Category;
-            existingAsset.Quantity = asset.Quantity;
-            existingAsset.LastUpdated = DateTime.UtcNow;
+            /* ---- dokupka istniejącego aktywa ---- */
+            decimal costBefore = existing.InvestedAmount;
+            decimal costAdded  = asset.CurrentPrice * asset.Quantity;
 
-            await _context.SaveChangesAsync();
+            existing.Quantity             += asset.Quantity;
+            existing.InvestedAmount       += costAdded;
+            existing.AveragePurchasePrice  = existing.InvestedAmount / existing.Quantity;
+            existing.LastUpdated           = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+            await RecordAssetPriceHistoryAsync(existing.Id, existing.CurrentPrice);
+            return existing;
+        }
+
+        /* -------------------------------------------------------------- */
+        /* 3.  AKTUALIZACJA NAZWY / SYMBOLU etc.                          */
+        /* -------------------------------------------------------------- */
+
+        public async Task<bool> UpdateAssetAsync(Asset updated)
+        {
+            var asset = await _db.Assets.FindAsync(updated.Id);
+            if (asset is null) return false;
+
+            asset.Name     = updated.Name;
+            asset.Symbol   = updated.Symbol.ToLower();
+            asset.Category = updated.Category;
+            asset.ImagePath= updated.ImagePath;
+            asset.LastUpdated = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
             return true;
         }
 
+        /* -------------------------------------------------------------- */
+        /* 4.  USUWANIE                                                   */
+        /* -------------------------------------------------------------- */
 
         public async Task<bool> DeleteAssetAsync(int id)
         {
-            var asset = await _context.Assets.FindAsync(id);
-            if (asset == null)
-            {
-                return false;
-            }
+            var asset = await _db.Assets.FindAsync(id);
+            if (asset is null) return false;
 
-            _context.Assets.Remove(asset);
-            await _context.SaveChangesAsync();
+            _db.Assets.Remove(asset);
+            await _db.SaveChangesAsync();
             return true;
         }
 
+        /* -------------------------------------------------------------- */
+        /* 5.  WYCENY I P/L                                               */
+        /* -------------------------------------------------------------- */
+
         public async Task<decimal> CalculateAssetCurrentValueAsync(int id)
         {
-            var asset = await _context.Assets.FindAsync(id);
-            if (asset == null)
-            {
-                throw new KeyNotFoundException($"Asset with ID {id} not found");
-            }
-
-            return asset.CurrentPrice * asset.Quantity;
+            var a = await _db.Assets.FindAsync(id) ?? throw new KeyNotFoundException();
+            return a.CurrentPrice * a.Quantity;
         }
 
         public async Task<decimal> CalculateAssetProfitLossAsync(int id)
         {
-            var asset = await _context.Assets.FindAsync(id);
-            if (asset == null)
-            {
-                throw new KeyNotFoundException($"Asset with ID {id} not found");
-            }
-
-            decimal currentValue = asset.CurrentPrice * asset.Quantity;
-            decimal initialValue = asset.InitialPrice * asset.Quantity;
-
-            return currentValue - initialValue;
+            var a = await _db.Assets.FindAsync(id) ?? throw new KeyNotFoundException();
+            var current = a.CurrentPrice * a.Quantity;
+            return current - a.InvestedAmount;          // zysk brutto
         }
+
+        /* -------------------------------------------------------------- */
+        /* 6.  MASOWE ODŚWIEŻENIE CEN                                     */
+        /* -------------------------------------------------------------- */
 
         public async Task UpdateAssetPricesAsync(int portfolioId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var assets = await _db.Assets.Where(a => a.PortfolioId == portfolioId).ToListAsync();
 
-            try
+            foreach (var a in assets)
             {
-                var assets = await _context.Assets
-                    .Where(a => a.PortfolioId == portfolioId)
-                    .ToListAsync();
+                var price = await _prices.GetCurrentPriceAsync(a.Symbol, a.Category);
+                if (price <= 0) continue;
 
-                foreach (var asset in assets)
-                {
-                    var newPrice = await _externalApiService.GetCurrentPriceAsync(asset.Symbol, asset.Category);
-                    if (newPrice > 0)
-                    {
-                        asset.CurrentPrice = newPrice;
-                        asset.LastUpdated = DateTime.UtcNow;
-
-                        await RecordAssetPriceHistoryAsync(asset.Id, newPrice);
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
+                a.CurrentPrice = price;
+                a.LastUpdated  = DateTime.UtcNow;
+                await RecordAssetPriceHistoryAsync(a.Id, price);
             }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw; 
-            }
+            await _db.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<AssetPriceHistory>> GetAssetPriceHistoryAsync(int assetId, DateTime startDate, DateTime endDate)
-        {
-            return await _context.AssetPriceHistories
-                .Where(h => h.AssetId == assetId && h.RecordedAt >= startDate && h.RecordedAt <= endDate)
-                .OrderBy(h => h.RecordedAt)
-                .ToListAsync();
-        }
+        /* -------------------------------------------------------------- */
+        /* 7.  HISTORIA CEN                                               */
+        /* -------------------------------------------------------------- */
 
-        private async Task<bool> AssetExistsAsync(int id)
-        {
-            return await _context.Assets.AnyAsync(a => a.Id == id);
-        }
+        public async Task<IEnumerable<AssetPriceHistory>> GetAssetPriceHistoryAsync(
+            int assetId, DateTime start, DateTime end) =>
+            await _db.AssetPriceHistories
+                     .Where(h => h.AssetId == assetId &&
+                                 h.RecordedAt >= start && h.RecordedAt <= end)
+                     .OrderBy(h => h.RecordedAt)
+                     .ToListAsync();
+
+        /* -------------------------------------------------------------- */
+        /* 8.  Helpers                                                    */
+        /* -------------------------------------------------------------- */
 
         private async Task RecordAssetPriceHistoryAsync(int assetId, decimal price)
         {
-            var priceHistory = new AssetPriceHistory
+            _db.AssetPriceHistories.Add(new AssetPriceHistory
             {
-                AssetId = assetId,
-                Price = price,
+                AssetId    = assetId,
+                Price      = price,
                 RecordedAt = DateTime.UtcNow
-            };
-
-            _context.AssetPriceHistories.Add(priceHistory);
-            await _context.SaveChangesAsync();
+            });
+            await _db.SaveChangesAsync();
         }
     }
 }

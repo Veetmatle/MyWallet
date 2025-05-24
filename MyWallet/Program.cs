@@ -28,7 +28,24 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
 builder.Services.AddHttpClient();
 
-// 4️⃣ Rejestracja mapperów
+// Cache?
+builder.Services.AddMemoryCache();            
+builder.Services.AddHttpClient();   
+
+
+// ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy
+            .WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
+
 builder.Services.AddScoped<UserMapper>();
 builder.Services.AddScoped<PortfolioMapper>();
 builder.Services.AddScoped<AssetMapper>();

@@ -25,7 +25,11 @@ namespace MyWallet.DTOs
         public decimal Quantity { get; set; }
         [Required(ErrorMessage = "ID portfela jest wymagane.")]
         public int PortfolioId { get; set; }
+        
+        public decimal AveragePurchasePrice { get; set; }
 
         public string? ImagePath { get; set; }
+        public decimal  InvestedAmount       { get; set; }   
+        
     }
 }
