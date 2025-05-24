@@ -35,22 +35,50 @@ namespace MyWallet.Services.Implementations
                 .FirstOrDefaultAsync(t => t.Id == id);
         }
 
-        public async Task<Transaction> CreateTransactionAsync(Transaction transaction)
+        public async Task<Transaction> CreateTransactionAsync(Transaction tx)
         {
-            // Oblicz całkowitą kwotę transakcji
-            transaction.TotalAmount = transaction.Price * transaction.Quantity;
-            
-            _context.Transactions.Add(transaction);
-            await _context.SaveChangesAsync();
+            await _context.Transactions.AddAsync(tx);
 
-            // Jeśli transakcja dotyczy aktywa, zaktualizuj ilość aktywa
-            if (transaction.AssetId.HasValue)
+            if (tx.AssetId is int assetId &&
+                (tx.Type == TransactionType.Buy || tx.Type == TransactionType.Sell))
             {
-                await UpdateAssetBasedOnTransactionAsync(transaction);
+                var asset = await _context.Assets.FindAsync(assetId);
+                if (asset == null) throw new InvalidOperationException("Asset not found");
+
+                switch (tx.Type)
+                {
+                    case TransactionType.Buy:
+                        var totalBefore = asset.InvestedAmount;
+                        var qtyBefore   = asset.Quantity;
+
+                        asset.Quantity       += tx.Quantity;
+                        asset.InvestedAmount += tx.TotalAmount;           // cena*zlecona_ilość
+                        asset.AveragePurchasePrice = asset.Quantity == 0
+                            ? 0
+                            : asset.InvestedAmount / asset.Quantity;
+                        break;
+
+                    case TransactionType.Sell:
+                        if (asset.Quantity < tx.Quantity)
+                            throw new InvalidOperationException("Not enough quantity to sell");
+
+                        asset.Quantity       -= tx.Quantity;
+                        asset.InvestedAmount -= asset.AveragePurchasePrice * tx.Quantity;
+
+                        if (asset.Quantity == 0)
+                        {
+                            asset.AveragePurchasePrice = 0;
+                            asset.InvestedAmount       = 0;
+                        }
+                        break;
+                }
+                asset.LastUpdated = DateTime.UtcNow;
             }
 
-            return transaction;
+            await _context.SaveChangesAsync();
+            return tx;
         }
+
 
         public async Task<bool> UpdateTransactionAsync(Transaction transaction)
         {

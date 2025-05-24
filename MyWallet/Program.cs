@@ -22,6 +22,11 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
 builder.Services.AddHttpClient();
 
+// Cache?
+builder.Services.AddMemoryCache();            
+builder.Services.AddHttpClient();   
+
+
 // ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
 builder.Services.AddCors(options =>
 {

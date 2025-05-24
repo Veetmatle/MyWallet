@@ -1,4 +1,5 @@
-﻿import { useState } from "react";
+﻿// src/hooks/useAssetHints.ts
+import { useState } from "react";
 
 export interface AssetHintDto {
     symbol: string;
@@ -8,21 +9,13 @@ export interface AssetHintDto {
 export function useAssetHints() {
     const [hints, setHints] = useState<AssetHintDto[]>([]);
 
-    const fetchHints = async (query: string, category: string) => {
-        if (query.length < 2) {
-            setHints([]);     
-            return;
-        }
+    const fetchHints = async (category: string, query: string) => {
         try {
             const res = await fetch(
-                `http://localhost:5210/api/asset/search?category=${encodeURIComponent(category)}&query=${encodeURIComponent(query)}`
+                `/api/asset/hints?category=${encodeURIComponent(category)}&query=${encodeURIComponent(query)}`
             );
-            if (!res.ok) {
-                setHints([]);
-                return;
-            }
-            const data: AssetHintDto[] = await res.json();
-            setHints(data);
+            if (!res.ok) throw new Error();
+            setHints(await res.json());
         } catch {
             setHints([]);
         }

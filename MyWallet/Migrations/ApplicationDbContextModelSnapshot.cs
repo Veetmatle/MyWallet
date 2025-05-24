@@ -33,6 +33,9 @@ namespace MyWallet.Migrations
                     b.Property<DateTime>("AcquiredAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal>("AveragePurchasePrice")
+                        .HasColumnType("decimal(18,8)");
+
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -46,6 +49,9 @@ namespace MyWallet.Migrations
 
                     b.Property<decimal>("InitialPrice")
                         .HasColumnType("decimal(18, 8)");
+
+                    b.Property<decimal>("InvestedAmount")
+                        .HasColumnType("decimal(18,8)");
 
                     b.Property<DateTime>("LastUpdated")
                         .HasColumnType("timestamp with time zone");

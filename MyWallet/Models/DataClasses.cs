@@ -93,6 +93,12 @@ namespace MyWallet.Models
         [ForeignKey("PortfolioId")]
         public virtual Portfolio Portfolio { get; set; }
         
+        [Column(TypeName = "decimal(18,8)")]
+        public decimal AveragePurchasePrice { get; set; }      // nowy – średni koszt sztuki
+
+        [Column(TypeName = "decimal(18,8)")]
+        public decimal InvestedAmount { get; set; }            // łączny koszt nabycia (opcjonalnie)
+        
         public virtual ICollection<AssetPriceHistory> PriceHistory { get; set; } = new List<AssetPriceHistory>();
         
         public string? ImagePath { get; set; }
