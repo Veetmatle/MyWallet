@@ -7,6 +7,7 @@ export default function Register() {
     const [username, setUsername] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
 
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [success, setSuccess] = useState("");
@@ -22,6 +23,9 @@ export default function Register() {
 
         if (!password) newErrors.password = "Hasło jest wymagane.";
         else if (password.length < 6) newErrors.password = "Hasło musi mieć co najmniej 6 znaków.";
+
+        if (!confirmPassword) newErrors.confirmPassword = "Potwierdzenie hasła jest wymagane.";
+        else if (password !== confirmPassword) newErrors.confirmPassword = "Hasła nie są takie same.";
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -102,6 +106,18 @@ export default function Register() {
                             className="form-control"
                         />
                         {errors.password && <div className="error-message">{errors.password}</div>}
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="confirmPassword">Powtórz hasło</label>
+                        <input
+                            id="confirmPassword"
+                            type="password"
+                            placeholder="Powtórz hasło"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="form-control"
+                        />
+                        {errors.confirmPassword && <div className="error-message">{errors.confirmPassword}</div>}
                     </div>
                     <button type="submit" className="btn btn-primary">
                         Zarejestruj się

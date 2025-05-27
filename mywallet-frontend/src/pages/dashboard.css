@@ -363,3 +363,142 @@ hr {
     font-weight: 600;
     color: #333;
 }
+
+/* Add these styles to your dashboard.css file */
+
+.portfolio-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.portfolio-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #2563eb;
+}
+
+.profit-loss-summary {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.invested-amount {
+    font-size: 1.1em;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.profit-loss {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.2em;
+    font-weight: 600;
+}
+
+.profit-loss.profit {
+    color: #16a34a;
+}
+
+.profit-loss.loss {
+    color: #dc2626;
+}
+
+.profit-loss.profit .amount,
+.profit-loss.profit .percentage {
+    color: #16a34a;
+}
+
+.profit-loss.loss .amount,
+.profit-loss.loss .percentage {
+    color: #dc2626;
+}
+
+.asset-profit-loss {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.asset-profit-loss.profit {
+    background-color: #f0fdf4;
+    color: #16a34a;
+    border-left: 3px solid #16a34a;
+}
+
+.asset-profit-loss.loss {
+    background-color: #fef2f2;
+    color: #dc2626;
+    border-left: 3px solid #dc2626;
+}
+
+.asset-profit-loss .amount,
+.asset-profit-loss .percentage {
+    font-weight: 600;
+    margin-left: 5px;
+}
+
+.profit-loss-breakdown {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background-color: white;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stat-item .label {
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.stat-item .value {
+    font-weight: 600;
+    font-size: 1.1em;
+}
+
+.stat-item .value.profit {
+    color: #16a34a;
+}
+
+.stat-item .value.loss {
+    color: #dc2626;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .profit-loss-summary {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .summary-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .stat-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}

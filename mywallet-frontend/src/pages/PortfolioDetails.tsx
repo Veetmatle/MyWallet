@@ -9,15 +9,11 @@ interface AssetDto {
     symbol: string;
     name: string;
     category: string;
-
-    /** średni koszt 1 sztuki */
     averagePurchasePrice: number;
-
-    currentPrice: number;     // aktualna cena
+    currentPrice: number;
     quantity: number;
-    currentValue: number;     // quantity × currentPrice
-
-    investedAmount: number;   // suma wpłat (opcjonalne wykorzystanie w UI)
+    currentValue: number;
+    investedAmount: number;
     imagePath?: string;
 }
 
@@ -29,16 +25,16 @@ interface PortfolioDto {
 }
 
 const ASSET_CATEGORIES = [
-    { label: "Akcje",          value: "stock" },
-    { label: "ETF",            value: "etf" },
-    { label: "Kryptowaluty",   value: "cryptocurrency" },
+    { label: "Akcje", value: "stock" },
+    { label: "ETF", value: "etf" },
+    { label: "Kryptowaluty", value: "cryptocurrency" },
 ];
 
 export default function PortfolioDetails() {
     const { id } = useParams<{ id: string }>();
     const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
-    const [assets,   setAssets]    = useState<AssetDto[]>([]);
-    const [error,    setError]     = useState("");
+    const [assets, setAssets] = useState<AssetDto[]>([]);
+    const [error, setError] = useState("");
     const { hints, fetchHints, clearHints } = useAssetHints();
     const debounceRef = useRef<number>(0);
 
@@ -52,9 +48,6 @@ export default function PortfolioDetails() {
 
     const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-    /* ------------------------------------------------------------------ */
-    /* 1)  Pobierz portfel i aktywa                                       */
-    /* ------------------------------------------------------------------ */
     useEffect(() => {
         if (!id) return;
 
@@ -67,32 +60,24 @@ export default function PortfolioDetails() {
             .then((r) => r.json())
             .then((data: any[]) => {
                 const mapped: AssetDto[] = data.map((a) => ({
-                    id:       a.id,
-                    symbol:   a.symbol,
-                    name:     a.name,
+                    id: a.id,
+                    symbol: a.symbol,
+                    name: a.name,
                     category: a.category,
-
                     averagePurchasePrice: a.averagePurchasePrice,
-                    currentPrice:         a.currentPrice,
-                    quantity:             a.quantity,
-                    currentValue:         a.currentPrice * a.quantity,
-
+                    currentPrice: a.currentPrice,
+                    quantity: a.quantity,
+                    currentValue: a.currentPrice * a.quantity,
                     investedAmount: a.investedAmount,
-                    imagePath:      a.imagePath,
+                    imagePath: a.imagePath,
                 }));
                 setAssets(mapped);
             })
             .catch(() => setError("Nie udało się pobrać aktywów."));
     }, [id]);
 
-    /* ------------------------------------------------------------------ */
-    /* 2)  Grupowane odświeżanie cen krypto co 5 min                      */
-    /* ------------------------------------------------------------------ */
     const cryptoSymbols = useMemo(
-        () =>
-            assets
-                .filter((a) => a.category === "cryptocurrency")
-                .map((a) => a.symbol),
+        () => assets.filter((a) => a.category === "cryptocurrency").map((a) => a.symbol),
         [assets]
     );
 
@@ -131,9 +116,6 @@ export default function PortfolioDetails() {
         return () => clearInterval(timer);
     }, [cryptoSymbols]);
 
-    /* ------------------------------------------------------------------ */
-    /* 3)  Debounce dla podpowiedzi                                       */
-    /* ------------------------------------------------------------------ */
     const handleSymbolChange = (value: string) => {
         setNewAsset((prev) => ({ ...prev, symbol: value }));
 
@@ -150,9 +132,6 @@ export default function PortfolioDetails() {
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 4)  Selektor podpowiedzi                                           */
-    /* ------------------------------------------------------------------ */
     const handleSelectHint = async (hint: AssetHintDto) => {
         const category = newAsset.category;
         setNewAsset((p) => ({ ...p, symbol: hint.symbol, name: hint.name }));
@@ -171,9 +150,6 @@ export default function PortfolioDetails() {
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 5)  Walidacja formularza                                           */
-    /* ------------------------------------------------------------------ */
     const validateForm = () => {
         const errors: { [key: string]: string } = {};
 
@@ -199,9 +175,6 @@ export default function PortfolioDetails() {
         return Object.keys(errors).length === 0;
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 6)  Dodawanie aktywa                                               */
-    /* ------------------------------------------------------------------ */
     const handleAddAsset = async () => {
         setError("");
         setFormErrors({});
@@ -271,23 +244,19 @@ export default function PortfolioDetails() {
             };
 
             setAssets((prev) => {
-                // Sprawdź czy aktywo już istnieje (aktualizacja) czy jest nowe
                 const existingIndex = prev.findIndex(asset =>
-                        asset.symbol.toLowerCase() === added.symbol.toLowerCase() &&
-                        asset.category === added.category
-                    );
+                    asset.symbol.toLowerCase() === added.symbol.toLowerCase() &&
+                    asset.category === added.category
+                );
                 if (existingIndex >= 0) {
-                    // Aktualizuj istniejące aktywo
                     const updated = [...prev];
                     updated[existingIndex] = added;
                     return updated;
                 } else {
-                    // Dodaj nowe aktywo
                     return [...prev, added];
                 }
             });
 
-            // Wyczyść formularz
             setNewAsset({
                 symbol: "",
                 name: "",
@@ -302,9 +271,6 @@ export default function PortfolioDetails() {
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 7)  Usuwanie                                                       */
-    /* ------------------------------------------------------------------ */
     const handleDelete = async (assetId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to aktywo?")) return;
         try {
@@ -316,9 +282,6 @@ export default function PortfolioDetails() {
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 8)  Ręczne odświeżenie pojedynczego                                */
-    /* ------------------------------------------------------------------ */
     const handleRefresh = async (assetId: number) => {
         const asset = assets.find((a) => a.id === assetId);
         if (!asset) return;
@@ -343,23 +306,28 @@ export default function PortfolioDetails() {
         }
     };
 
-    /* ------------------------------------------------------------------ */
-    /* 9)  Wartość portfela                                               */
-    /* ------------------------------------------------------------------ */
-    const totalValue = assets
-        .reduce((sum, a) => sum + a.currentValue, 0)
-        .toFixed(2);
+    const { totalValue, totalInvested, profitPercentage, profitAmount } = useMemo(() => {
+        const totalValue = assets.reduce((sum, a) => sum + a.currentValue, 0);
+        const totalInvested = assets.reduce((sum, a) => sum + (a.averagePurchasePrice * a.quantity), 0);
+        const profitAmount = totalValue - totalInvested;
+        const profitPercentage = totalInvested > 0
+            ? (profitAmount / totalInvested) * 100
+            : 0;
 
-    /* ------------------------------------------------------------------ */
-    /* 10) Podgląd wartości podczas dodawania                             */
-    /* ------------------------------------------------------------------ */
+        return {
+            totalValue: totalValue.toFixed(2),
+            totalInvested: totalInvested.toFixed(2),
+            profitPercentage: profitPercentage.toFixed(1),
+            profitAmount: profitAmount.toFixed(2)
+        };
+    }, [assets]);
+
     const computeTotal = () => {
         const purchase = parseFloat(newAsset.currentPrice) || 0;
         const qty = parseFloat(newAsset.quantity) || 0;
         return (purchase * qty).toFixed(2);
     };
 
-    // Cleanup timeout on unmount
     useEffect(() => {
         return () => {
             if (debounceRef.current) {
@@ -374,7 +342,12 @@ export default function PortfolioDetails() {
         <div className="dashboard-content">
             <div className="portfolio-header">
                 <h2>{portfolio.name}</h2>
-                <div className="portfolio-value">Wartość portfela: ${totalValue}</div>
+                <div className="portfolio-value-container">
+                    <div className="portfolio-value">Wartość portfela: ${totalValue}</div>
+                    <div className={`profit-loss ${parseFloat(profitAmount) >= 0 ? 'profit' : 'loss'}`}>
+                        {parseFloat(profitAmount) >= 0 ? '+' : ''}{profitAmount}$ ({profitPercentage}%)
+                    </div>
+                </div>
             </div>
 
             {portfolio.description && <p>{portfolio.description}</p>}
@@ -418,10 +391,8 @@ export default function PortfolioDetails() {
 
             <hr />
 
-            {/* Formularz dodawania nowego aktywa */}
             <h3>Dodaj aktywo</h3>
             <div className="portfolio-form">
-                {/* Kategoria */}
                 <div>
                     <label>Kategoria:</label>
                     <select
@@ -446,7 +417,6 @@ export default function PortfolioDetails() {
                     {formErrors.category && <div className="error-message">{formErrors.category}</div>}
                 </div>
 
-                {/* Symbol z podpowiedziami */}
                 <div style={{ position: "relative" }}>
                     <label>Symbol:</label>
                     <input
@@ -468,7 +438,6 @@ export default function PortfolioDetails() {
                     )}
                 </div>
 
-                {/* Nazwa */}
                 <div>
                     <label>Nazwa:</label>
                     <input
@@ -480,7 +449,6 @@ export default function PortfolioDetails() {
                     {formErrors.name && <div className="error-message">{formErrors.name}</div>}
                 </div>
 
-                {/* Cena */}
                 <div>
                     <label>Cena zakupu ($):</label>
                     <input
@@ -494,7 +462,6 @@ export default function PortfolioDetails() {
                     {formErrors.currentPrice && <div className="error-message">{formErrors.currentPrice}</div>}
                 </div>
 
-                {/* Ilość */}
                 <div>
                     <label>Ilość:</label>
                     <input
@@ -508,19 +475,16 @@ export default function PortfolioDetails() {
                     {formErrors.quantity && <div className="error-message">{formErrors.quantity}</div>}
                 </div>
 
-                {/* Podgląd wartości */}
                 {newAsset.currentPrice && newAsset.quantity && (
                     <div style={{ gridColumn: "span 2", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "4px" }}>
                         <strong>Łączna wartość: ${computeTotal()}</strong>
                     </div>
                 )}
 
-                {/* Przycisk zapisz */}
                 <button className="save-btn" onClick={handleAddAsset}>
                     Dodaj aktywo
                 </button>
 
-                {/* Komunikaty błędów */}
                 {error && <div className="error-message" style={{ gridColumn: "span 2" }}>{error}</div>}
             </div>
         </div>

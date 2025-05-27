@@ -7,7 +7,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 
-// .
 namespace MyWallet.Controllers
 {
     [ApiController]
@@ -16,11 +15,16 @@ namespace MyWallet.Controllers
     {
         private readonly ITransactionService _transactionService;
         private readonly TransactionMapper _mapper;
+        private readonly IAssetService _assetService;
 
-        public TransactionController(ITransactionService transactionService, TransactionMapper mapper)
+        public TransactionController(
+            ITransactionService transactionService, 
+            TransactionMapper mapper,
+            IAssetService assetService)
         {
             _transactionService = transactionService;
             _mapper = mapper;
+            _assetService = assetService;
         }
 
         [HttpGet("portfolio/{portfolioId}")]
@@ -102,6 +106,90 @@ namespace MyWallet.Controllers
         {
             var total = await _transactionService.GetTotalWithdrawnAmountAsync(portfolioId);
             return Ok(total);
+        }
+        
+        [HttpGet("portfolio/{portfolioId}/profit-loss")]
+        public async Task<IActionResult> GetPortfolioProfitLoss(int portfolioId)
+        {
+            try
+            {
+                var assets = await _assetService.GetPortfolioAssetsAsync(portfolioId);
+                var currentTotalValue = assets.Sum(a => a.CurrentPrice * a.Quantity);
+                var totalInvested = await _transactionService.GetTotalInvestedAmountAsync(portfolioId);
+                var profitLoss = currentTotalValue - totalInvested;
+                var profitLossPercentage = totalInvested > 0 ? (profitLoss / totalInvested) * 100 : 0;
+
+                var result = new PortfolioProfitLossDto
+                {
+                    TotalInvested = totalInvested,
+                    CurrentValue = currentTotalValue,
+                    ProfitLoss = profitLoss,
+                    ProfitLossPercentage = Math.Round(profitLossPercentage, 2),
+                    IsProfit = profitLoss >= 0
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Błąd podczas obliczania zysku/straty: {ex.Message}");
+            }
+        }
+        
+        [HttpGet("portfolio/{portfolioId}/profit-loss-breakdown")]
+        public async Task<IActionResult> GetPortfolioProfitLossBreakdown(int portfolioId)
+        {
+            try
+            {
+                var assets = await _assetService.GetPortfolioAssetsAsync(portfolioId);
+                
+                var assetBreakdowns = assets.Select(asset => {
+                    var currentValue = asset.CurrentPrice * asset.Quantity;
+                    var investedValue = asset.AveragePurchasePrice * asset.Quantity;
+                    var profitLoss = currentValue - investedValue;
+                    var profitLossPercentage = investedValue > 0 ? (profitLoss / investedValue) * 100 : 0;
+
+                    return new AssetBreakdownDto
+                    {
+                        Symbol = asset.Symbol,
+                        Quantity = asset.Quantity,
+                        AverageBuyPrice = asset.AveragePurchasePrice,
+                        CurrentPrice = asset.CurrentPrice,
+                        CurrentValue = currentValue,
+                        ProfitLoss = profitLoss,
+                        ProfitLossPercent = Math.Round(profitLossPercentage, 2),
+                        IsProfit = profitLoss >= 0
+                    };
+                }).ToList(); // Convert to List here
+
+                var totalInvested = assetBreakdowns.Sum(x => x.AverageBuyPrice * x.Quantity);
+                var totalCurrentValue = assetBreakdowns.Sum(x => x.CurrentValue);
+                var totalProfitLoss = assetBreakdowns.Sum(x => x.ProfitLoss);
+                var totalProfitLossPercentage = totalInvested > 0 
+                    ? Math.Round((totalProfitLoss / totalInvested) * 100, 2) 
+                    : 0;
+
+                var result = new PortfolioProfitLossBreakdownDto
+                {
+                    Assets = assetBreakdowns,
+                    Summary = new BreakdownSummaryDto
+                    {
+                        TotalAssets = assetBreakdowns.Count,
+                        ProfitableAssets = assetBreakdowns.Count(x => x.IsProfit),
+                        LosingAssets = assetBreakdowns.Count(x => !x.IsProfit),
+                        TotalInvested = totalInvested,
+                        CurrentValue = totalCurrentValue,
+                        ProfitLoss = totalProfitLoss,
+                        ProfitLossPercent = totalProfitLossPercentage
+                    }
+                };
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Błąd podczas obliczania szczegółowego zysku/straty: {ex.Message}");
+            }
         }
     }
 }
