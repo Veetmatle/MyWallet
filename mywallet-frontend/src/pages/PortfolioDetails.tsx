@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState, useRef, useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
 
@@ -31,13 +31,14 @@ const ASSET_CATEGORIES = [
 
 export default function PortfolioDetails() {
     const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
     const [portfolio, setPortfolio] = useState<PortfolioDto | null>(null);
     const [assets, setAssets] = useState<AssetDto[]>([]);
     const [error, setError] = useState("");
     const { hints, fetchHints, clearHints } = useAssetHints();
     const debounceRef = useRef<number>(0);
 
-    // Dodawanie aktywa - stan i błędy (tak jak podałeś)
+    // Dodawanie aktywa - stan i błędy
     const [newAsset, setNewAsset] = useState({
         symbol: "",
         name: "",
@@ -413,14 +414,24 @@ export default function PortfolioDetails() {
 
     return (
         <div className="dashboard-content">
-            <div className="portfolio-header">
+            <div className="portfolio-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2>{portfolio.name}</h2>
-                <div className="portfolio-value-container">
-                    <div className="portfolio-value">Wartość portfela: ${totalValue}</div>
-                    <div className={`profit-loss ${parseFloat(profitAmount) >= 0 ? "profit" : "loss"}`}>
-                        {parseFloat(profitAmount) >= 0 ? "+" : ""}
-                        {profitAmount}$ ({profitPercentage}%)
-                    </div>
+                <button
+                    onClick={() => {
+                        if (id) navigate(`/portfolio/${id}/report/form`);
+                    }}
+                    className="generate-report-btn"
+                    style={{ cursor: "pointer" }}
+                >
+                    Generuj raport
+                </button>
+            </div>
+
+            <div className="portfolio-value-container">
+                <div className="portfolio-value">Wartość portfela: ${totalValue}</div>
+                <div className={`profit-loss ${parseFloat(profitAmount) >= 0 ? "profit" : "loss"}`}>
+                    {parseFloat(profitAmount) >= 0 ? "+" : ""}
+                    {profitAmount}$ ({profitPercentage}%)
                 </div>
             </div>
 
@@ -625,8 +636,18 @@ export default function PortfolioDetails() {
                 </div>
 
                 {newAsset.currentPrice && newAsset.quantity && (
-                    <div style={{ gridColumn: "span 2", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "4px" }}>
-                        <strong>Łączna wartość: ${(parseFloat(newAsset.currentPrice) * parseFloat(newAsset.quantity)).toFixed(2)}</strong>
+                    <div
+                        style={{
+                            gridColumn: "span 2",
+                            padding: "10px",
+                            backgroundColor: "#f8f9fa",
+                            borderRadius: "4px",
+                        }}
+                    >
+                        <strong>
+                            Łączna wartość: $
+                            {(parseFloat(newAsset.currentPrice) * parseFloat(newAsset.quantity)).toFixed(2)}
+                        </strong>
                     </div>
                 )}
 
@@ -634,7 +655,11 @@ export default function PortfolioDetails() {
                     Dodaj aktywo
                 </button>
 
-                {error && <div className="error-message" style={{ gridColumn: "span 2" }}>{error}</div>}
+                {error && (
+                    <div className="error-message" style={{ gridColumn: "span 2" }}>
+                        {error}
+                    </div>
+                )}
             </div>
         </div>
     );

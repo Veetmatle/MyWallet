@@ -1,0 +1,74 @@
+﻿.dashboard-content {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+    border-radius: 8px;
+    font-family: Arial, sans-serif;
+}
+
+h2 {
+    margin-bottom: 20px;
+    font-weight: 600;
+}
+
+label {
+    font-weight: 600;
+}
+
+select {
+    padding: 6px 10px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-left: 8px;
+}
+
+button {
+    padding: 8px 14px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: #2563eb; /* niebieski */
+    color: white;
+    transition: background-color 0.2s ease-in-out;
+}
+
+button:hover:not(:disabled) {
+    background-color: #1e40af; /* ciemniejszy niebieski */
+}
+
+button:disabled {
+    background-color: #9ca3af; /* szary */
+    cursor: not-allowed;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+}
+
+th {
+    background-color: #f3f4f6; /* jasnoszary */
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background-color: #fafafa;
+}
+
+.error-message {
+    color: #dc2626; /* czerwony */
+    margin-top: 10px;
+    font-weight: 600;
+}

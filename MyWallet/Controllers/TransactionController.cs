@@ -152,6 +152,25 @@ namespace MyWallet.Controllers
                 return BadRequest(ex.Message);
             }
         }
+        
+        [HttpGet("portfolio/{portfolioId}/report")]
+        public async Task<IActionResult> GetReport(
+            int portfolioId, 
+            [FromQuery] DateTime start, 
+            [FromQuery] DateTime end)
+        {
+            if (start == default || end == default || start > end)
+                return BadRequest("Niepoprawny zakres dat.");
+            
+            start = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+            end = DateTime.SpecifyKind(end, DateTimeKind.Utc);
+
+            var transactions = await _transactionService.GetTransactionsByDateRangeAsync(portfolioId, start, end);
+            var dtos = transactions.Select(_mapper.ToDto);
+            return Ok(dtos);
+        }
+
+
 
         
         [HttpGet("portfolio/{portfolioId}/profit-loss-breakdown")]
