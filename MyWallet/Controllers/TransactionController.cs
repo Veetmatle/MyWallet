@@ -246,6 +246,25 @@ namespace MyWallet.Controllers
                 FileDownloadName = fileName
             };
         }
+        
+        /* Do wysyłania maila z raportem pdf */
+        [HttpPost("portfolio/{portfolioId}/report/sendmail")]
+        public async Task<IActionResult> SendReportMail(int portfolioId, [FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            if (start == default || end == default || start > end)
+                return BadRequest("Niepoprawny zakres dat.");
+
+            try
+            {
+                await _transactionService.SendReportPdfByEmailAsync(portfolioId, start, end);
+                return Ok("Raport został wysłany na Twój adres e-mail.");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Błąd podczas wysyłania maila: {ex.Message}");
+            }
+        }
+
 
 
     }

@@ -22,6 +22,9 @@ export default function PortfolioReportView() {
     const [transactions, setTransactions] = useState<TransactionDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [sendingMail, setSendingMail] = useState(false);   // nowy stan dla wysyłania maila
+    const [mailError, setMailError] = useState("");           // błąd wysyłania maila
+    const [mailSuccess, setMailSuccess] = useState("");       // komunikat o sukcesie
 
     const start = searchParams.get("start");
     const end = searchParams.get("end");
@@ -32,6 +35,8 @@ export default function PortfolioReportView() {
 
             setLoading(true);
             setError("");
+            setMailError("");
+            setMailSuccess("");
 
             try {
                 const res = await fetch(
@@ -50,7 +55,7 @@ export default function PortfolioReportView() {
         fetchReport();
     }, [id, start, end]);
 
-    // Funkcja do pobierania PDF
+    // Funkcja do pobierania PDF (już masz)
     const downloadPdf = async () => {
         if (!id || !start || !end) return;
         try {
@@ -70,6 +75,29 @@ export default function PortfolioReportView() {
             window.URL.revokeObjectURL(url);
         } catch (e: any) {
             alert(e.message || "Błąd podczas pobierania PDF");
+        }
+    };
+
+    // Funkcja do wysyłania maila z raportem
+    const sendReportEmail = async () => {
+        if (!id || !start || !end) return;
+        setSendingMail(true);
+        setMailError("");
+        setMailSuccess("");
+        try {
+            const res = await fetch(
+                `/api/transaction/portfolio/${id}/report/sendmail?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+                { method: "POST" }
+            );
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Błąd podczas wysyłania maila");
+            }
+            setMailSuccess("Raport został wysłany na Twój adres e-mail.");
+        } catch (e: any) {
+            setMailError(e.message || "Błąd podczas wysyłania maila");
+        } finally {
+            setSendingMail(false);
         }
     };
 
@@ -131,10 +159,12 @@ export default function PortfolioReportView() {
                         <button style={{ marginLeft: 8 }} onClick={downloadPdf}>
                             Pobierz PDF
                         </button>
-                        <button style={{ marginLeft: 8 }} disabled>
-                            Wyślij raport na mail (w trakcie implementacji)
+                        <button style={{ marginLeft: 8 }} onClick={sendReportEmail} disabled={sendingMail}>
+                            {sendingMail ? "Wysyłanie..." : "Wyślij raport na mail"}
                         </button>
                     </div>
+                    {mailError && <p style={{ color: "red" }}>{mailError}</p>}
+                    {mailSuccess && <p style={{ color: "green" }}>{mailSuccess}</p>}
                 </>
             )}
 

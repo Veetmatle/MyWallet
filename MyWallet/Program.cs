@@ -7,6 +7,7 @@ using MyWallet.Data;
 using MyWallet.Services;
 using MyWallet.Services.Implementations;
 using MyWallet.Mappers;
+using Microsoft.Extensions.Options; 
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,8 @@ builder.Services.AddScoped<IAssetService>(provider =>
         provider.GetRequiredService<IExternalApiService>()
     ));
 builder.Services.AddHttpClient();
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Cache?
 builder.Services.AddMemoryCache();            

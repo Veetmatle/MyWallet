@@ -140,3 +140,6 @@ D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\ICSharpCode.Shar
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\SixLabors.Fonts.dll
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\SixLabors.ImageSharp.dll
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\de\PdfSharpCore.resources.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\BouncyCastle.Cryptography.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\MailKit.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\MimeKit.dll

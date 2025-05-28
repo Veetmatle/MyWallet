@@ -100,5 +100,17 @@ namespace MyWallet.Services.Implementations
                 return builder.ToString();
             }
         }
+        
+        public async Task<string> GetUserEmailByPortfolioIdAsync(int portfolioId)
+        {
+            var email = await (from p in _context.Portfolios
+                join u in _context.Users on p.UserId equals u.Id
+                where p.Id == portfolioId
+                select u.Email).FirstOrDefaultAsync();
+
+            return email;
+        }
+
+
     }
 }

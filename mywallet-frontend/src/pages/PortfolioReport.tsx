@@ -1,5 +1,4 @@
-﻿// src/pages/PortfolioReport.tsx
-import { useState } from "react";
+﻿import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./PortfolioReport.css";
 
@@ -52,11 +51,16 @@ export default function PortfolioReport() {
     const [transactions, setTransactions] = useState<TransactionDto[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    const [sendingMail, setSendingMail] = useState(false);
+    const [mailError, setMailError] = useState("");
+    const [mailSuccess, setMailSuccess] = useState("");
 
     const fetchReport = async () => {
         if (!id) return;
         setLoading(true);
         setError("");
+        setMailError("");
+        setMailSuccess("");
 
         const { start, end } = getDateRange(dateOption);
 
@@ -71,6 +75,30 @@ export default function PortfolioReport() {
             setError(e.message || "Nie udało się pobrać raportu");
         } finally {
             setLoading(false);
+        }
+    };
+
+    const sendReportEmail = async () => {
+        if (!id) return;
+        setSendingMail(true);
+        setMailError("");
+        setMailSuccess("");
+        const { start, end } = getDateRange(dateOption);
+
+        try {
+            const res = await fetch(
+                `/api/transaction/portfolio/${id}/report/sendmail?start=${start}&end=${end}`,
+                { method: "POST" }
+            );
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Błąd podczas wysyłania maila");
+            }
+            setMailSuccess("Raport został wysłany na Twój adres e-mail.");
+        } catch (e: any) {
+            setMailError(e.message || "Błąd podczas wysyłania maila");
+        } finally {
+            setSendingMail(false);
         }
     };
 
@@ -152,11 +180,21 @@ export default function PortfolioReport() {
                         <button style={{ marginLeft: 8 }} disabled>
                             Pobierz PDF (w trakcie implementacji)
                         </button>
-                        <button style={{ marginLeft: 8 }} disabled>
-                            Wyślij raport na mail (w trakcie implementacji)
+                        <button
+                            style={{ marginLeft: 8 }}
+                            onClick={sendReportEmail}
+                            disabled={sendingMail}
+                        >
+                            {sendingMail ? "Wysyłanie..." : "Wyślij raport na mail"}
                         </button>
                     </div>
+                    {mailError && <p style={{ color: "red" }}>{mailError}</p>}
+                    {mailSuccess && <p style={{ color: "green" }}>{mailSuccess}</p>}
                 </>
+            )}
+
+            {transactions.length === 0 && !loading && !error && (
+                <p>Brak transakcji w wybranym okresie.</p>
             )}
         </div>
     );

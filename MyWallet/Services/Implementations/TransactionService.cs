@@ -16,13 +16,19 @@ namespace MyWallet.Services.Implementations
     public class TransactionService : ITransactionService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IEmailService _emailService;
         private readonly IPortfolioService _portfolioService;
+        private readonly IUserService _userService;
 
-
-        public TransactionService(ApplicationDbContext context, IPortfolioService portfolioService)
+        public TransactionService(ApplicationDbContext context,
+            IEmailService emailService,
+            IPortfolioService portfolioService,
+            IUserService userService)
         {
             _context = context;
+            _emailService = emailService;
             _portfolioService = portfolioService;
+            _userService = userService;
         }
 
         public async Task<IEnumerable<Transaction>> GetPortfolioTransactionsAsync(int portfolioId)
@@ -313,6 +319,51 @@ namespace MyWallet.Services.Implementations
             document.Save(stream, false);
             return stream.ToArray();
         }
+        
+        
+        
+        /* Do wysyłania pdf na maila - z debugowaniem */
+        public async Task SendReportPdfByEmailAsync(int portfolioId, DateTime start, DateTime end)
+        {
+            try
+            {
+                Console.WriteLine($"Rozpoczynam wysyłanie raportu dla portfela {portfolioId}");
+        
+                var pdfBytes = await GenerateReportPdfAsync(portfolioId, start, end);
+                if (pdfBytes == null || pdfBytes.Length == 0)
+                    throw new Exception("Brak danych do raportu.");
+
+                Console.WriteLine($"PDF wygenerowany, rozmiar: {pdfBytes.Length} bajtów");
+
+                var portfolio = await _portfolioService.GetPortfolioByIdAsync(portfolioId);
+                Console.WriteLine($"Portfolio: {portfolio?.Name ?? "brak nazwy"}");
+        
+                var userEmail = await _userService.GetUserEmailByPortfolioIdAsync(portfolioId);
+                Console.WriteLine($"Email użytkownika: {userEmail ?? "brak emaila"}");
+
+                if (string.IsNullOrEmpty(userEmail))
+                    throw new Exception("Nie znaleziono adresu email użytkownika.");
+
+                string subject = $"Raport portfela {portfolio?.Name} z dnia {DateTime.Now:yyyy-MM-dd}";
+                string body = $"Raport transakcji za okres {start:yyyy-MM-dd} - {end:yyyy-MM-dd}.\n\nMiłego dnia :)";
+                string fileName = $"Report_{portfolio?.Name}_{start:yyyyMMdd}_{end:yyyyMMdd}.pdf";
+
+                Console.WriteLine($"Wysyłam email do: {userEmail}");
+                Console.WriteLine($"Temat: {subject}");
+                Console.WriteLine($"Nazwa załącznika: {fileName}");
+
+                await _emailService.SendEmailWithAttachmentAsync(userEmail, subject, body, pdfBytes, fileName);
+        
+                Console.WriteLine("Email wysłany pomyślnie!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Błąd wysyłania emaila: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
+                throw;
+            }
+        }
+
 
 
     }

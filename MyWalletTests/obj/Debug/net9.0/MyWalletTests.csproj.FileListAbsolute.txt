@@ -131,3 +131,11 @@ D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\obj\Debug\net9.0\refint\MyWa
 D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\obj\Debug\net9.0\MyWalletTests.pdb
 D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\obj\Debug\net9.0\MyWalletTests.genruntimeconfig.cache
 D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\obj\Debug\net9.0\ref\MyWalletTests.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\BouncyCastle.Cryptography.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\MailKit.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\MimeKit.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\PdfSharpCore.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\ICSharpCode.SharpZipLib.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\SixLabors.Fonts.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\SixLabors.ImageSharp.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWalletTests\bin\Debug\net9.0\de\PdfSharpCore.resources.dll

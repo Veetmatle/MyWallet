@@ -13,6 +13,7 @@ namespace MyWallet.Services
         Task<bool> CreateUserAsync(User user, string password);
         Task<bool> ValidateUserCredentialsAsync(string username, string password);
         Task<bool> UpdateUserAsync(User user);
+        Task<string> GetUserEmailByPortfolioIdAsync(int portfolioId);
     }
 
     public interface IPortfolioService
@@ -58,7 +59,7 @@ namespace MyWallet.Services
         Task<decimal> GetTotalInvestedAmountAsync(int portfolioId);
         Task<decimal> GetTotalWithdrawnAmountAsync(int portfolioId);
         Task<byte[]> GenerateReportPdfAsync(int portfolioId, DateTime start, DateTime end);
-
+        Task SendReportPdfByEmailAsync(int portfolioId, DateTime start, DateTime end);
     }
 
     public interface IReportService
@@ -77,5 +78,10 @@ namespace MyWallet.Services
         Task<IEnumerable<AssetHintDto>> SearchAssetsAsync(string query, string category);
         Task<Dictionary<DateTime, decimal>> GetHistoricalPricesAsync(string symbol, string category,
             DateTime startDate, DateTime endDate);
+    }
+    
+    public interface IEmailService
+    {
+        Task SendEmailWithAttachmentAsync(string toEmail, string subject, string body, byte[] attachmentBytes, string attachmentName);
     }
 }
