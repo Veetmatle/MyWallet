@@ -21,6 +21,12 @@ export default function Dashboard() {
     const [newDescription, setNewDescription] = useState("");
     const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
+    // --- Nowe stany dla usuwania ---
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [selectedToDelete, setSelectedToDelete] = useState<number[]>([]);
+    const [usernameConfirm, setUsernameConfirm] = useState("");
+    const [deleteError, setDeleteError] = useState("");
+
     useEffect(() => {
         const userData = localStorage.getItem("user");
         if (!userData) {
@@ -103,6 +109,52 @@ export default function Dashboard() {
         }
     };
 
+    // --- Funkcje do usuwania ---
+
+    // Zaznaczanie/odznaczanie portfeli do usunięcia
+    const toggleSelectToDelete = (id: number) => {
+        setSelectedToDelete(prev =>
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    // Potwierdzenie i usunięcie portfeli
+    const handleDeletePortfolios = async () => {
+        setDeleteError("");
+
+        if (selectedToDelete.length === 0) {
+            setDeleteError("Wybierz przynajmniej jeden portfel.");
+            return;
+        }
+
+        if (usernameConfirm.trim().toLowerCase() !== user.username.toLowerCase()) {
+            setDeleteError("Niepoprawna nazwa użytkownika.");
+            return;
+        }
+
+        try {
+            for (const id of selectedToDelete) {
+                const res = await fetch(`/api/portfolio/${id}`, { method: "DELETE" });
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(text || "Błąd usuwania portfela.");
+                }
+            }
+
+            // Po usunięciu odśwież listę portfeli
+            const remaining = portfolios.filter(p => !selectedToDelete.includes(p.id));
+            setPortfolios(remaining);
+
+            // Zamknij modal i wyczyść stany
+            setShowDeleteModal(false);
+            setSelectedToDelete([]);
+            setUsernameConfirm("");
+            setDeleteError("");
+        } catch (err: any) {
+            setDeleteError(err.message);
+        }
+    };
+
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
         return new Intl.DateTimeFormat("pl-PL", {
@@ -151,9 +203,18 @@ export default function Dashboard() {
 
             <div className="dashboard-content">
                 <h2 className="page-title">Twoje Portfele</h2>
-                <button className="add-btn" onClick={() => setShowForm(!showForm)}>
-                    {showForm ? "Anuluj" : "+ Dodaj nowy portfel"}
-                </button>
+                <div className="action-buttons">
+                    <button className="add-btn" onClick={() => setShowForm(!showForm)}>
+                        {showForm ? "Anuluj" : "+ Dodaj nowy portfel"}
+                    </button>
+
+                    <button
+                        className="delete-portfolio-btn"
+                        onClick={() => setShowDeleteModal(true)}
+                    >
+                        Usuń portfel
+                    </button>
+                </div>
 
                 {showForm && (
                     <div className="portfolio-form">
@@ -171,8 +232,9 @@ export default function Dashboard() {
                             value={newDescription}
                             onChange={(e) => setNewDescription(e.target.value)}
                         />
-                        {formErrors.description && <div className="error-message">{formErrors.description}</div>}
-
+                        {formErrors.description && (
+                            <div className="error-message">{formErrors.description}</div>
+                        )}
                         <button className="save-btn" onClick={handleCreatePortfolio}>
                             Zapisz portfel
                         </button>
@@ -187,8 +249,8 @@ export default function Dashboard() {
                         <div className="empty-state-text">
                             <h3>Nie masz jeszcze żadnych portfeli</h3>
                             <p>
-                                Stwórz swój pierwszy portfel, aby zacząć śledzić swoje
-                                inwestycje i oszczędności.
+                                Stwórz swój pierwszy portfel, aby zacząć śledzić swoje inwestycje i
+                                oszczędności.
                             </p>
                         </div>
                     </div>
@@ -213,6 +275,39 @@ export default function Dashboard() {
                         ))}
                     </div>
                 )}
+
+                {/* MODAL USUWANIA PORTFELI */}
+                {showDeleteModal && (
+                    <div className="modal-overlay">
+                        <div className="modal">
+                            <h3>Usuń portfel(e)</h3>
+                            <div className="portfolio-list">
+                                {portfolios.map((p) => (
+                                    <label key={p.id}>
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedToDelete.includes(p.id)}
+                                            onChange={() => toggleSelectToDelete(p.id)}
+                                        />
+                                        {p.name}
+                                    </label>
+                                ))}
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Wpisz swoją nazwę użytkownika, aby potwierdzić"
+                                value={usernameConfirm}
+                                onChange={(e) => setUsernameConfirm(e.target.value)}
+                            />
+                            {deleteError && <div className="error-message">{deleteError}</div>}
+                            <div className="modal-buttons">
+                                <button className="delete-btn" onClick={handleDeletePortfolios}>Usuń</button>
+                                <button className="cancel-btn" onClick={() => setShowDeleteModal(false)}>Anuluj</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
             </div>
         </div>
     );

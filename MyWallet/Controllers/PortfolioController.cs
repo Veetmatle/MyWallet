@@ -73,6 +73,8 @@ namespace MyWallet.Controllers
 
             return Ok("Portfel usunięty.");
         }
+        
+        
 
         [HttpGet("{id}/value")]
         public async Task<IActionResult> GetPortfolioValue(int id)

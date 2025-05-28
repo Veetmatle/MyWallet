@@ -189,15 +189,37 @@ export default function PortfolioDetails() {
             return;
         }
 
-        const purchase = parseFloat(newAsset.currentPrice);
-        const qty = parseFloat(newAsset.quantity);
+        const userPrice = parseFloat(newAsset.currentPrice);
+        const quantity = parseFloat(newAsset.quantity);
+        
+        let apiPrice = 0;
+        try {
+            const resPrice = await fetch(`/api/asset/price?category=${encodeURIComponent(newAsset.category)}&symbol=${encodeURIComponent(newAsset.symbol)}`);
+            if (resPrice.ok) {
+                apiPrice = await resPrice.json();
+            }
+        } catch {
+            
+        }
+
+        // Sprawdź, czy cena użytkownika różni się od ceny z API więcej niż o 1%
+        if (apiPrice > 0 && Math.abs(apiPrice - userPrice) / apiPrice > 0.01) {
+            const confirmed = window.confirm(
+                `Wpisana cena (${userPrice.toFixed(2)}) różni się od ceny rynkowej (${apiPrice.toFixed(2)}). Czy na pewno chcesz kupić po tej cenie?`
+            );
+            if (!confirmed) {
+                // Jeśli użytkownik anulował, ustaw cenę z API i przerwij
+                setNewAsset(prev => ({ ...prev, currentPrice: apiPrice.toString() }));
+                return;
+            }
+        }
 
         const payload = {
             symbol: newAsset.symbol.trim(),
             name: newAsset.name.trim(),
             category: newAsset.category,
-            currentPrice: purchase,
-            quantity: qty,
+            currentPrice: userPrice,
+            quantity: quantity,
             portfolioId,
         };
 
@@ -213,9 +235,7 @@ export default function PortfolioDetails() {
                 if (data.errors) {
                     const backendErrors: { [key: string]: string } = {};
                     for (const key in data.errors) {
-                        backendErrors[key.toLowerCase()] = Array.isArray(data.errors[key])
-                            ? data.errors[key][0]
-                            : data.errors[key];
+                        backendErrors[key.toLowerCase()] = Array.isArray(data.errors[key]) ? data.errors[key][0] : data.errors[key];
                     }
                     setFormErrors(backendErrors);
                 } else {
@@ -270,6 +290,7 @@ export default function PortfolioDetails() {
             setError(err.message || "Błąd podczas dodawania aktywa.");
         }
     };
+
 
     const handleDelete = async (assetId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to aktywo?")) return;

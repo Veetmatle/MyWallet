@@ -34,21 +34,30 @@ namespace MyWallet.Services.Implementations
         /* 2.  TWORZENIE / DOKUPKA                                        */
         /* -------------------------------------------------------------- */
 
-        public async Task<Asset> CreateAssetAsync(Asset asset)
+        public async Task<Asset> CreateAssetAsync(Asset asset, decimal? userPrice = null)
         {
-            asset.Symbol = asset.Symbol.ToLower();                    // standaryzacja
-            asset.CurrentPrice = await _prices.GetCurrentPriceAsync(asset.Symbol, asset.Category);
+            asset.Symbol = asset.Symbol.ToLower();
+
+            // Jeśli użytkownik podał cenę, użyj jej, w przeciwnym razie pobierz z API
+            if (userPrice.HasValue && userPrice.Value > 0)
+            {
+                asset.CurrentPrice = userPrice.Value;
+            }
+            else
+            {
+                asset.CurrentPrice = await _prices.GetCurrentPriceAsync(asset.Symbol, asset.Category);
+            }
 
             var existing = await _db.Assets.FirstOrDefaultAsync(a =>
                 a.PortfolioId == asset.PortfolioId &&
-                a.Symbol      == asset.Symbol      &&
-                a.Category    == asset.Category);
+                a.Symbol == asset.Symbol &&
+                a.Category == asset.Category);
 
-            if (existing is null)
+            if (existing == null)
             {
                 asset.AveragePurchasePrice = asset.CurrentPrice;
-                asset.InvestedAmount       = asset.CurrentPrice * asset.Quantity;
-                asset.LastUpdated          = DateTime.UtcNow;
+                asset.InvestedAmount = asset.CurrentPrice * asset.Quantity;
+                asset.LastUpdated = DateTime.UtcNow;
 
                 _db.Assets.Add(asset);
                 await _db.SaveChangesAsync();
@@ -56,19 +65,18 @@ namespace MyWallet.Services.Implementations
                 return asset;
             }
 
-            /* ---- dokupka istniejącego aktywa ---- */
-            decimal costBefore = existing.InvestedAmount;
-            decimal costAdded  = asset.CurrentPrice * asset.Quantity;
+            decimal costAdded = asset.CurrentPrice * asset.Quantity;
 
-            existing.Quantity             += asset.Quantity;
-            existing.InvestedAmount       += costAdded;
-            existing.AveragePurchasePrice  = existing.InvestedAmount / existing.Quantity;
-            existing.LastUpdated           = DateTime.UtcNow;
+            existing.Quantity += asset.Quantity;
+            existing.InvestedAmount += costAdded;
+            existing.AveragePurchasePrice = existing.InvestedAmount / existing.Quantity;
+            existing.LastUpdated = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
             await RecordAssetPriceHistoryAsync(existing.Id, existing.CurrentPrice);
             return existing;
         }
+
 
         /* -------------------------------------------------------------- */
         /* 3.  AKTUALIZACJA NAZWY / SYMBOLU etc.                          */

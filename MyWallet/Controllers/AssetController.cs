@@ -77,20 +77,17 @@ namespace MyWallet.Controllers
             return Ok(_assetMapper.ToDto(asset));
         }
 
-        // POST api/asset
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AssetDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var model   = _assetMapper.ToModel(dto);
-            var created = await _assetService.CreateAssetAsync(model);
-            return CreatedAtAction(
-                nameof(GetAssetById),
-                new { id = created.Id },
-                _assetMapper.ToDto(created));
+            var model = _assetMapper.ToModel(dto);
+            var created = await _assetService.CreateAssetAsync(model, dto.CurrentPrice);
+            return CreatedAtAction(nameof(GetAssetById), new { id = created.Id }, _assetMapper.ToDto(created));
         }
+
 
         // PUT api/asset
         [HttpPut]

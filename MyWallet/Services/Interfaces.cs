@@ -28,14 +28,14 @@ namespace MyWallet.Services
         Task<Dictionary<string, decimal>> GetAssetCategoryDistributionAsync(int portfolioId);
         Task<decimal> GetInvestedAmountAsync(int portfolioId);
         Task<decimal> GetPortfolioProfitLossAsync(int portfolioId);
-
     }
 
     public interface IAssetService
     {
         Task<IEnumerable<Asset>> GetPortfolioAssetsAsync(int portfolioId);
         Task<Asset> GetAssetByIdAsync(int id);
-        Task<Asset> CreateAssetAsync(Asset asset);
+        Task<Asset> CreateAssetAsync(Asset asset, decimal? userPrice = null);
+    
         Task<bool> UpdateAssetAsync(Asset asset);
         Task<bool> DeleteAssetAsync(int id);
         Task<decimal> CalculateAssetCurrentValueAsync(int id);
@@ -43,6 +43,7 @@ namespace MyWallet.Services
         Task UpdateAssetPricesAsync(int portfolioId);
         Task<IEnumerable<AssetPriceHistory>> GetAssetPriceHistoryAsync(int assetId, DateTime startDate, DateTime endDate);
     }
+
 
     public interface ITransactionService
     {
