@@ -57,6 +57,7 @@ namespace MyWallet.Services
         Task<IEnumerable<Transaction>> GetTransactionsByDateRangeAsync(int portfolioId, DateTime startDate, DateTime endDate);
         Task<decimal> GetTotalInvestedAmountAsync(int portfolioId);
         Task<decimal> GetTotalWithdrawnAmountAsync(int portfolioId);
+        Task<byte[]> GenerateReportPdfAsync(int portfolioId, DateTime start, DateTime end);
 
     }
 

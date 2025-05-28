@@ -50,6 +50,29 @@ export default function PortfolioReportView() {
         fetchReport();
     }, [id, start, end]);
 
+    // Funkcja do pobierania PDF
+    const downloadPdf = async () => {
+        if (!id || !start || !end) return;
+        try {
+            const res = await fetch(
+                `/api/transaction/portfolio/${id}/report/pdf?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+                { method: "GET" }
+            );
+            if (!res.ok) throw new Error("Błąd pobierania PDF");
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `Report_Portfolio_${id}_${start}_${end}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e: any) {
+            alert(e.message || "Błąd podczas pobierania PDF");
+        }
+    };
+
     return (
         <div className="dashboard-content">
             <h2>Raport transakcji portfela</h2>
@@ -105,8 +128,8 @@ export default function PortfolioReportView() {
 
                     <div style={{ marginTop: 20 }}>
                         <button onClick={() => navigate(-1)}>Wróć</button>
-                        <button style={{ marginLeft: 8 }} disabled>
-                            Pobierz PDF (w trakcie implementacji)
+                        <button style={{ marginLeft: 8 }} onClick={downloadPdf}>
+                            Pobierz PDF
                         </button>
                         <button style={{ marginLeft: 8 }} disabled>
                             Wyślij raport na mail (w trakcie implementacji)

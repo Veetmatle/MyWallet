@@ -135,3 +135,8 @@ D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\obj\Debug\net9.0\refint\MyWallet.
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\obj\Debug\net9.0\MyWallet.pdb
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\obj\Debug\net9.0\MyWallet.genruntimeconfig.cache
 D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\obj\Debug\net9.0\ref\MyWallet.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\PdfSharpCore.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\ICSharpCode.SharpZipLib.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\SixLabors.Fonts.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\SixLabors.ImageSharp.dll
+D:\RIDER_PROJECTS\MyWalletApplication\MyWallet\bin\Debug\net9.0\de\PdfSharpCore.resources.dll

@@ -6,16 +6,23 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Drawing;
+using System.Globalization;
 
 namespace MyWallet.Services.Implementations
 {
     public class TransactionService : ITransactionService
     {
         private readonly ApplicationDbContext _context;
+        private readonly IPortfolioService _portfolioService;
 
-        public TransactionService(ApplicationDbContext context)
+
+        public TransactionService(ApplicationDbContext context, IPortfolioService portfolioService)
         {
             _context = context;
+            _portfolioService = portfolioService;
         }
 
         public async Task<IEnumerable<Transaction>> GetPortfolioTransactionsAsync(int portfolioId)
@@ -230,6 +237,83 @@ namespace MyWallet.Services.Implementations
                            (t.Type == TransactionType.Withdrawal || t.Type == TransactionType.Sell))
                 .SumAsync(t => t.TotalAmount);
         }
+        
+        /* Do generowania raportów */
+        public async Task<byte[]> GenerateReportPdfAsync(int portfolioId, DateTime start, DateTime end)
+        {
+            var transactions = await GetTransactionsByDateRangeAsync(portfolioId, start, end);
+            if (transactions == null || !transactions.Any())
+                return Array.Empty<byte>();
+
+            var portfolio = await _portfolioService.GetPortfolioByIdAsync(portfolioId); // załóżmy, że masz tę metodę
+
+            using var document = new PdfDocument();
+            document.Info.Title = $"Raport transakcji portfela {portfolio?.Name ?? portfolioId.ToString()}";
+
+            PdfPage page = null;
+            XGraphics gfx = null;
+            XFont titleFont = new XFont("Verdana", 16, XFontStyle.Bold);
+            XFont headerFont = new XFont("Verdana", 12, XFontStyle.Bold);
+            XFont contentFont = new XFont("Verdana", 10, XFontStyle.Regular);
+
+            int margin = 40;
+            int yPoint = 0;
+            int lineHeight = 20;
+            int pageHeightLimit = 800; // granica wysokości przed dodaniem nowej strony
+
+            void AddPageAndHeader()
+            {
+                page = document.AddPage();
+                gfx = XGraphics.FromPdfPage(page);
+                yPoint = margin;
+
+                // Tytuł
+                string title = $"Raport transakcji portfela: {portfolio?.Name ?? portfolioId.ToString()}";
+                gfx.DrawString(title, titleFont, XBrushes.Black, new XRect(0, yPoint, page.Width, lineHeight), XStringFormats.TopCenter);
+                yPoint += lineHeight + 10;
+
+                // Okres
+                string period = $"Okres: {start:yyyy-MM-dd} - {end:yyyy-MM-dd}";
+                gfx.DrawString(period, contentFont, XBrushes.Black, new XRect(margin, yPoint, page.Width, lineHeight), XStringFormats.TopLeft);
+                yPoint += lineHeight + 15;
+
+                // Nagłówki kolumn
+                gfx.DrawString("Data", headerFont, XBrushes.Black, margin, yPoint);
+                gfx.DrawString("Aktywo", headerFont, XBrushes.Black, margin + 70, yPoint);
+                gfx.DrawString("Typ", headerFont, XBrushes.Black, margin + 140, yPoint);
+                gfx.DrawString("Ilość", headerFont, XBrushes.Black, margin + 200, yPoint);
+                gfx.DrawString("Cena", headerFont, XBrushes.Black, margin + 260, yPoint);
+                gfx.DrawString("Kwota", headerFont, XBrushes.Black, margin + 320, yPoint);
+                gfx.DrawString("Notatki", headerFont, XBrushes.Black, margin + 380, yPoint);
+
+                yPoint += lineHeight;
+            }
+
+            AddPageAndHeader();
+
+            foreach (var tx in transactions)
+            {
+                if (yPoint + lineHeight > pageHeightLimit)
+                {
+                    AddPageAndHeader();
+                }
+
+                gfx.DrawString(tx.ExecutedAt.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), contentFont, XBrushes.Black, margin, yPoint);
+                gfx.DrawString(tx.AssetSymbol.ToUpperInvariant(), contentFont, XBrushes.Black, margin + 70, yPoint);
+                gfx.DrawString(tx.Type != null ? tx.Type.ToString() : "-", contentFont, XBrushes.Black, margin + 140, yPoint);
+                gfx.DrawString(tx.Quantity.ToString("0.######"), contentFont, XBrushes.Black, margin + 200, yPoint);
+                gfx.DrawString($"${tx.Price:0.00}", contentFont, XBrushes.Black, margin + 260, yPoint);
+                gfx.DrawString($"${tx.TotalAmount:0.00}", contentFont, XBrushes.Black, margin + 320, yPoint);
+                gfx.DrawString(tx.Notes ?? "-", contentFont, XBrushes.Black, margin + 380, yPoint);
+
+                yPoint += lineHeight;
+            }
+
+            using var stream = new MemoryStream();
+            document.Save(stream, false);
+            return stream.ToArray();
+        }
+
 
     }
 }

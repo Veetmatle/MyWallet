@@ -228,5 +228,25 @@ namespace MyWallet.Controllers
                 return StatusCode(500, $"Błąd podczas obliczania szczegółowego zysku/straty: {ex.Message}");
             }
         }
+        
+        [HttpGet("portfolio/{portfolioId}/report/pdf")]
+        public async Task<IActionResult> GetReportPdf(int portfolioId, [FromQuery] DateTime start, [FromQuery] DateTime end)
+        {
+            if (start == default || end == default || start > end)
+                return BadRequest("Niepoprawny zakres dat.");
+
+            var pdfBytes = await _transactionService.GenerateReportPdfAsync(portfolioId, start, end);
+            if (pdfBytes == null || pdfBytes.Length == 0)
+                return NotFound("Brak danych do raportu.");
+
+            string fileName = $"Report_Portfolio_{portfolioId}_{start:yyyyMMdd}_{end:yyyyMMdd}.pdf";
+            
+            return new FileContentResult(pdfBytes, "application/pdf")
+            {
+                FileDownloadName = fileName
+            };
+        }
+
+
     }
 }
