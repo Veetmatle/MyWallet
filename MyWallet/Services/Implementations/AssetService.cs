@@ -204,5 +204,49 @@ namespace MyWallet.Services.Implementations
             });
             await _db.SaveChangesAsync();
         }
+        
+        public async Task<Asset> SellAssetAsync(int assetId, decimal quantityToSell, decimal price)
+        {
+            var asset = await _db.Assets.FindAsync(assetId);
+            if (asset == null) throw new KeyNotFoundException("Aktywo nie znalezione");
+
+            if (quantityToSell <= 0) throw new ArgumentException("Ilość do sprzedaży musi być większa od zera");
+
+            if (asset.Quantity < quantityToSell)
+                throw new InvalidOperationException("Nie ma wystarczającej ilości aktywa do sprzedaży");
+
+            decimal totalAmount = price * quantityToSell;
+
+            asset.Quantity -= quantityToSell;
+            asset.InvestedAmount -= asset.AveragePurchasePrice * quantityToSell;
+
+            if (asset.Quantity == 0)
+            {
+                asset.AveragePurchasePrice = 0;
+                asset.InvestedAmount = 0;
+            }
+            asset.LastUpdated = DateTime.UtcNow;
+
+            var sellTx = new Transaction
+            {
+                PortfolioId = asset.PortfolioId,
+                AssetId = asset.Id,
+                AssetSymbol = asset.Symbol,
+                Price = price,
+                Quantity = quantityToSell,
+                TotalAmount = totalAmount,
+                Type = TransactionType.Sell,
+                ExecutedAt = DateTime.UtcNow,
+                Notes = "Sprzedaż aktywa"
+            };
+
+            _db.Transactions.Add(sellTx);
+
+            await _db.SaveChangesAsync();
+            return asset;
+        }
+
     }
+    
+    
 }

@@ -42,6 +42,7 @@ namespace MyWallet.Services
         Task<decimal> CalculateAssetProfitLossAsync(int id);
         Task UpdateAssetPricesAsync(int portfolioId);
         Task<IEnumerable<AssetPriceHistory>> GetAssetPriceHistoryAsync(int assetId, DateTime startDate, DateTime endDate);
+        Task<Asset> SellAssetAsync(int assetId, decimal quantityToSell, decimal price);
     }
 
 

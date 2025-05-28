@@ -1,5 +1,4 @@
-﻿// src/pages/PortfolioDetails.tsx
-import { useEffect, useState, useRef, useMemo } from "react";
+﻿import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import "./dashboard.css";
 import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
@@ -38,6 +37,7 @@ export default function PortfolioDetails() {
     const { hints, fetchHints, clearHints } = useAssetHints();
     const debounceRef = useRef<number>(0);
 
+    // Dodawanie aktywa - stan i błędy (tak jak podałeś)
     const [newAsset, setNewAsset] = useState({
         symbol: "",
         name: "",
@@ -45,8 +45,17 @@ export default function PortfolioDetails() {
         currentPrice: "",
         quantity: "",
     });
-
     const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
+    // Sprzedaż aktywa - stan i błędy + widoczność formularza
+    const [sellAsset, setSellAsset] = useState({
+        assetId: 0,
+        quantity: "",
+        price: "",
+    });
+    const [sellFormErrors, setSellFormErrors] = useState<{ [key: string]: string }>({});
+    const [sellError, setSellError] = useState("");
+    const [showSellForm, setShowSellForm] = useState(false);
 
     useEffect(() => {
         if (!id) return;
@@ -191,25 +200,23 @@ export default function PortfolioDetails() {
 
         const userPrice = parseFloat(newAsset.currentPrice);
         const quantity = parseFloat(newAsset.quantity);
-        
+
         let apiPrice = 0;
         try {
-            const resPrice = await fetch(`/api/asset/price?category=${encodeURIComponent(newAsset.category)}&symbol=${encodeURIComponent(newAsset.symbol)}`);
+            const resPrice = await fetch(
+                `/api/asset/price?category=${encodeURIComponent(newAsset.category)}&symbol=${encodeURIComponent(newAsset.symbol)}`
+            );
             if (resPrice.ok) {
                 apiPrice = await resPrice.json();
             }
-        } catch {
-            
-        }
+        } catch {}
 
-        // Sprawdź, czy cena użytkownika różni się od ceny z API więcej niż o 1%
         if (apiPrice > 0 && Math.abs(apiPrice - userPrice) / apiPrice > 0.01) {
             const confirmed = window.confirm(
                 `Wpisana cena (${userPrice.toFixed(2)}) różni się od ceny rynkowej (${apiPrice.toFixed(2)}). Czy na pewno chcesz kupić po tej cenie?`
             );
             if (!confirmed) {
-                // Jeśli użytkownik anulował, ustaw cenę z API i przerwij
-                setNewAsset(prev => ({ ...prev, currentPrice: apiPrice.toString() }));
+                setNewAsset((prev) => ({ ...prev, currentPrice: apiPrice.toString() }));
                 return;
             }
         }
@@ -235,7 +242,9 @@ export default function PortfolioDetails() {
                 if (data.errors) {
                     const backendErrors: { [key: string]: string } = {};
                     for (const key in data.errors) {
-                        backendErrors[key.toLowerCase()] = Array.isArray(data.errors[key]) ? data.errors[key][0] : data.errors[key];
+                        backendErrors[key.toLowerCase()] = Array.isArray(data.errors[key])
+                            ? data.errors[key][0]
+                            : data.errors[key];
                     }
                     setFormErrors(backendErrors);
                 } else {
@@ -264,9 +273,10 @@ export default function PortfolioDetails() {
             };
 
             setAssets((prev) => {
-                const existingIndex = prev.findIndex(asset =>
-                    asset.symbol.toLowerCase() === added.symbol.toLowerCase() &&
-                    asset.category === added.category
+                const existingIndex = prev.findIndex(
+                    (asset) =>
+                        asset.symbol.toLowerCase() === added.symbol.toLowerCase() &&
+                        asset.category === added.category
                 );
                 if (existingIndex >= 0) {
                     const updated = [...prev];
@@ -290,7 +300,6 @@ export default function PortfolioDetails() {
             setError(err.message || "Błąd podczas dodawania aktywa.");
         }
     };
-
 
     const handleDelete = async (assetId: number) => {
         if (!window.confirm("Czy na pewno chcesz usunąć to aktywo?")) return;
@@ -317,9 +326,7 @@ export default function PortfolioDetails() {
             const price: number = await res.json();
             setAssets((prev) =>
                 prev.map((x) =>
-                    x.id === assetId
-                        ? { ...x, currentPrice: price, currentValue: price * x.quantity }
-                        : x
+                    x.id === assetId ? { ...x, currentPrice: price, currentValue: price * x.quantity } : x
                 )
             );
         } catch (err: any) {
@@ -327,27 +334,72 @@ export default function PortfolioDetails() {
         }
     };
 
+    const validateSellForm = () => {
+        const errors: { [key: string]: string } = {};
+
+        const qty = parseFloat(sellAsset.quantity);
+        const price = parseFloat(sellAsset.price);
+
+        if (isNaN(qty) || qty <= 0) {
+            errors.quantity = "Ilość do sprzedaży musi być większa od 0.";
+        }
+        if (isNaN(price) || price <= 0) {
+            errors.price = "Cena sprzedaży musi być większa od 0.";
+        }
+        if (sellAsset.assetId <= 0) {
+            errors.assetId = "Nie wybrano aktywa do sprzedaży.";
+        }
+
+        setSellFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const handleSellAsset = async () => {
+        setSellError("");
+        setSellFormErrors({});
+
+        if (!validateSellForm()) return;
+
+        try {
+            const res = await fetch("/api/transaction/sell", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    assetId: sellAsset.assetId,
+                    quantity: parseFloat(sellAsset.quantity),
+                    price: parseFloat(sellAsset.price),
+                }),
+            });
+
+            if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Błąd podczas sprzedaży aktywa.");
+            }
+
+            const updatedAsset = await res.json();
+            setAssets((prev) =>
+                prev.map((a) => (a.id === updatedAsset.id ? { ...a, ...updatedAsset } : a))
+            );
+            setSellAsset({ assetId: 0, quantity: "", price: "" });
+            setShowSellForm(false);
+        } catch (err: any) {
+            setSellError(err.message);
+        }
+    };
+
     const { totalValue, totalInvested, profitPercentage, profitAmount } = useMemo(() => {
         const totalValue = assets.reduce((sum, a) => sum + a.currentValue, 0);
-        const totalInvested = assets.reduce((sum, a) => sum + (a.averagePurchasePrice * a.quantity), 0);
+        const totalInvested = assets.reduce((sum, a) => sum + a.averagePurchasePrice * a.quantity, 0);
         const profitAmount = totalValue - totalInvested;
-        const profitPercentage = totalInvested > 0
-            ? (profitAmount / totalInvested) * 100
-            : 0;
+        const profitPercentage = totalInvested > 0 ? (profitAmount / totalInvested) * 100 : 0;
 
         return {
             totalValue: totalValue.toFixed(2),
             totalInvested: totalInvested.toFixed(2),
             profitPercentage: profitPercentage.toFixed(1),
-            profitAmount: profitAmount.toFixed(2)
+            profitAmount: profitAmount.toFixed(2),
         };
     }, [assets]);
-
-    const computeTotal = () => {
-        const purchase = parseFloat(newAsset.currentPrice) || 0;
-        const qty = parseFloat(newAsset.quantity) || 0;
-        return (purchase * qty).toFixed(2);
-    };
 
     useEffect(() => {
         return () => {
@@ -365,8 +417,9 @@ export default function PortfolioDetails() {
                 <h2>{portfolio.name}</h2>
                 <div className="portfolio-value-container">
                     <div className="portfolio-value">Wartość portfela: ${totalValue}</div>
-                    <div className={`profit-loss ${parseFloat(profitAmount) >= 0 ? 'profit' : 'loss'}`}>
-                        {parseFloat(profitAmount) >= 0 ? '+' : ''}{profitAmount}$ ({profitPercentage}%)
+                    <div className={`profit-loss ${parseFloat(profitAmount) >= 0 ? "profit" : "loss"}`}>
+                        {parseFloat(profitAmount) >= 0 ? "+" : ""}
+                        {profitAmount}$ ({profitPercentage}%)
                     </div>
                 </div>
             </div>
@@ -380,31 +433,47 @@ export default function PortfolioDetails() {
             ) : (
                 <div className="portfolios-list">
                     {assets.map((a) => (
-                        <div key={a.id} className="portfolio-card">
-                            <button className="refresh-btn" onClick={() => handleRefresh(a.id)} title="Odśwież cenę">⟳</button>
-                            <button className="delete-btn" onClick={() => handleDelete(a.id)} title="Usuń aktywo">×</button>
+                        <div
+                            key={a.id}
+                            className="portfolio-card"
+                            onClick={() => {
+                                setShowSellForm(true);
+                                setSellAsset({
+                                    assetId: a.id,
+                                    quantity: "",
+                                    price: a.currentPrice.toString(),
+                                });
+                            }}
+                            style={{ cursor: "pointer" }}
+                            title="Kliknij, aby sprzedać część aktywa"
+                        >
+                            <button
+                                className="refresh-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRefresh(a.id);
+                                }}
+                                title="Odśwież cenę"
+                            >
+                                ⟳
+                            </button>
+                            <button
+                                className="delete-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(a.id);
+                                }}
+                                title="Usuń aktywo"
+                            >
+                                ×
+                            </button>
 
-                            <h4>
-                                {a.symbol.toUpperCase()} — {a.name}
-                            </h4>
-
-                            <p>Kategoria: {ASSET_CATEGORIES.find(cat => cat.value === a.category)?.label || a.category}</p>
+                            <h4>{a.symbol.toUpperCase()} — {a.name}</h4>
+                            <p>Kategoria: {ASSET_CATEGORIES.find((cat) => cat.value === a.category)?.label || a.category}</p>
                             <p>Śr. cena zakupu: ${a.averagePurchasePrice.toFixed(2)}</p>
                             <p>Cena aktualna: ${a.currentPrice.toFixed(2)}</p>
                             <p>Ilość: {a.quantity}</p>
-                            <p>
-                                <strong>Wartość: ${a.currentValue.toFixed(2)}</strong>
-                                {a.currentPrice !== a.averagePurchasePrice && (
-                                    <span style={{
-                                        color: a.currentPrice > a.averagePurchasePrice ? '#16a34a' : '#dc2626',
-                                        fontSize: '0.8em',
-                                        marginLeft: '8px'
-                                    }}>
-                                        ({a.currentPrice > a.averagePurchasePrice ? '+' : ''}
-                                        {(((a.currentPrice - a.averagePurchasePrice) / a.averagePurchasePrice) * 100).toFixed(1)}%)
-                                    </span>
-                                )}
-                            </p>
+                            <p><strong>Wartość: ${a.currentValue.toFixed(2)}</strong></p>
                         </div>
                     ))}
                 </div>
@@ -412,19 +481,78 @@ export default function PortfolioDetails() {
 
             <hr />
 
-            <h3>Dodaj aktywo</h3>
+            {showSellForm && (
+                <div className="sell-asset-form">
+                    <button
+                        className="close-sell-form-btn"
+                        onClick={() => setShowSellForm(false)}
+                        title="Zamknij formularz"
+                        style={{ float: "right", fontSize: "20px", border: "none", background: "transparent", cursor: "pointer" }}
+                    >
+                        ×
+                    </button>
+                    <h3>Sprzedaj część aktywa</h3>
+                    <select
+                        value={sellAsset.assetId}
+                        onChange={(e) => {
+                            const selectedId = Number(e.target.value);
+                            setSellAsset((prev) => ({ ...prev, assetId: selectedId }));
+
+                            const asset = assets.find((a) => a.id === selectedId);
+                            if (asset) {
+                                setSellAsset((prev) => ({ ...prev, price: asset.currentPrice.toString() }));
+                            }
+                        }}
+                    >
+                        <option value={0}>Wybierz aktywo</option>
+                        {assets.map((a) => (
+                            <option key={a.id} value={a.id}>
+                                {a.symbol.toUpperCase()} — {a.name} (Ilość: {a.quantity})
+                            </option>
+                        ))}
+                    </select>
+                    {sellFormErrors.assetId && <div className="error-message">{sellFormErrors.assetId}</div>}
+
+                    <input
+                        type="number"
+                        step="0.000001"
+                        min="0"
+                        placeholder="Ilość do sprzedaży"
+                        value={sellAsset.quantity}
+                        onChange={(e) => setSellAsset((prev) => ({ ...prev, quantity: e.target.value }))}
+                    />
+                    {sellFormErrors.quantity && <div className="error-message">{sellFormErrors.quantity}</div>}
+
+                    <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        placeholder="Cena sprzedaży"
+                        value={sellAsset.price}
+                        onChange={(e) => setSellAsset((prev) => ({ ...prev, price: e.target.value }))}
+                    />
+                    {sellFormErrors.price && <div className="error-message">{sellFormErrors.price}</div>}
+
+                    <button onClick={handleSellAsset}>Sprzedaj</button>
+                    {sellError && <div className="error-message">{sellError}</div>}
+                </div>
+            )}
+
+            <hr />
+
+            <h3>Dodaj nowe aktywo</h3>
             <div className="portfolio-form">
                 <div>
                     <label>Kategoria:</label>
                     <select
                         value={newAsset.category}
                         onChange={(e) => {
-                            setNewAsset(prev => ({
+                            setNewAsset((prev) => ({
                                 ...prev,
                                 category: e.target.value,
                                 symbol: "",
                                 name: "",
-                                currentPrice: ""
+                                currentPrice: "",
                             }));
                             clearHints();
                         }}
@@ -465,7 +593,7 @@ export default function PortfolioDetails() {
                         type="text"
                         placeholder="Pełna nazwa"
                         value={newAsset.name}
-                        onChange={(e) => setNewAsset(prev => ({ ...prev, name: e.target.value }))}
+                        onChange={(e) => setNewAsset((prev) => ({ ...prev, name: e.target.value }))}
                     />
                     {formErrors.name && <div className="error-message">{formErrors.name}</div>}
                 </div>
@@ -478,7 +606,7 @@ export default function PortfolioDetails() {
                         min="0"
                         placeholder="0.00"
                         value={newAsset.currentPrice}
-                        onChange={(e) => setNewAsset(prev => ({ ...prev, currentPrice: e.target.value }))}
+                        onChange={(e) => setNewAsset((prev) => ({ ...prev, currentPrice: e.target.value }))}
                     />
                     {formErrors.currentPrice && <div className="error-message">{formErrors.currentPrice}</div>}
                 </div>
@@ -491,14 +619,14 @@ export default function PortfolioDetails() {
                         min="0"
                         placeholder="0"
                         value={newAsset.quantity}
-                        onChange={(e) => setNewAsset(prev => ({ ...prev, quantity: e.target.value }))}
+                        onChange={(e) => setNewAsset((prev) => ({ ...prev, quantity: e.target.value }))}
                     />
                     {formErrors.quantity && <div className="error-message">{formErrors.quantity}</div>}
                 </div>
 
                 {newAsset.currentPrice && newAsset.quantity && (
                     <div style={{ gridColumn: "span 2", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "4px" }}>
-                        <strong>Łączna wartość: ${computeTotal()}</strong>
+                        <strong>Łączna wartość: ${(parseFloat(newAsset.currentPrice) * parseFloat(newAsset.quantity)).toFixed(2)}</strong>
                     </div>
                 )}
 

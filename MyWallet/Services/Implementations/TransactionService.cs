@@ -230,5 +230,6 @@ namespace MyWallet.Services.Implementations
                            (t.Type == TransactionType.Withdrawal || t.Type == TransactionType.Sell))
                 .SumAsync(t => t.TotalAmount);
         }
+
     }
 }

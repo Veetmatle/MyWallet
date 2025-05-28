@@ -136,6 +136,24 @@ namespace MyWallet.Controllers
             }
         }
         
+        [HttpPost("sell")]
+        public async Task<IActionResult> Sell([FromBody] SellAssetDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var asset = await _assetService.SellAssetAsync(dto.AssetId, dto.Quantity, dto.Price);
+                return Ok(asset);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        
         [HttpGet("portfolio/{portfolioId}/profit-loss-breakdown")]
         public async Task<IActionResult> GetPortfolioProfitLossBreakdown(int portfolioId)
         {
