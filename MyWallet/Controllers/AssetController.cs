@@ -102,6 +102,8 @@ namespace MyWallet.Controllers
                 return NotFound();
             return Ok("Aktywo zostało zaktualizowane.");
         }
+        
+        
 
         // DELETE api/asset/{id}
         [HttpDelete("{id}")]

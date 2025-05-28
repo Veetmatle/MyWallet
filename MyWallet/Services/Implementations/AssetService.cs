@@ -1,5 +1,4 @@
-﻿// MyWallet/Services/Implementations/AssetService.cs
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MyWallet.Data;
 using MyWallet.Models;
 using System;
@@ -16,7 +15,7 @@ namespace MyWallet.Services.Implementations
 
         public AssetService(ApplicationDbContext db, IExternalApiService prices)
         {
-            _db     = db;
+            _db = db;
             _prices = prices;
         }
 
@@ -38,15 +37,10 @@ namespace MyWallet.Services.Implementations
         {
             asset.Symbol = asset.Symbol.ToLower();
 
-            // Jeśli użytkownik podał cenę, użyj jej, w przeciwnym razie pobierz z API
             if (userPrice.HasValue && userPrice.Value > 0)
-            {
                 asset.CurrentPrice = userPrice.Value;
-            }
             else
-            {
                 asset.CurrentPrice = await _prices.GetCurrentPriceAsync(asset.Symbol, asset.Category);
-            }
 
             var existing = await _db.Assets.FirstOrDefaultAsync(a =>
                 a.PortfolioId == asset.PortfolioId &&
@@ -55,6 +49,7 @@ namespace MyWallet.Services.Implementations
 
             if (existing == null)
             {
+                // Nowe aktywo
                 asset.AveragePurchasePrice = asset.CurrentPrice;
                 asset.InvestedAmount = asset.CurrentPrice * asset.Quantity;
                 asset.LastUpdated = DateTime.UtcNow;
@@ -62,21 +57,56 @@ namespace MyWallet.Services.Implementations
                 _db.Assets.Add(asset);
                 await _db.SaveChangesAsync();
                 await RecordAssetPriceHistoryAsync(asset.Id, asset.CurrentPrice);
+
+                // Zapisz transakcję zakupu BEZPOŚREDNIO do bazy
+                var buyTx = new Transaction
+                {
+                    PortfolioId = asset.PortfolioId,
+                    AssetId = asset.Id,
+                    AssetSymbol = asset.Symbol,
+                    Price = asset.CurrentPrice,
+                    Quantity = asset.Quantity,
+                    TotalAmount = asset.CurrentPrice * asset.Quantity,
+                    Type = TransactionType.Buy,
+                    ExecutedAt = DateTime.UtcNow,
+                    Notes = ""
+                };
+                _db.Transactions.Add(buyTx);
+                await _db.SaveChangesAsync();
+
                 return asset;
             }
 
+            // Dokupienie istniejącego aktywa
             decimal costAdded = asset.CurrentPrice * asset.Quantity;
+            decimal oldQuantity = existing.Quantity;
+            decimal oldInvestedAmount = existing.InvestedAmount;
 
             existing.Quantity += asset.Quantity;
             existing.InvestedAmount += costAdded;
             existing.AveragePurchasePrice = existing.InvestedAmount / existing.Quantity;
             existing.LastUpdated = DateTime.UtcNow;
 
-            await _db.SaveChangesAsync();
             await RecordAssetPriceHistoryAsync(existing.Id, existing.CurrentPrice);
+
+            // Zapisz transakcję dokupienia BEZPOŚREDNIO do bazy
+            var buyTxExisting = new Transaction
+            {
+                PortfolioId = existing.PortfolioId,
+                AssetId = existing.Id,
+                AssetSymbol = existing.Symbol,
+                Price = asset.CurrentPrice,
+                Quantity = asset.Quantity,
+                TotalAmount = costAdded,
+                Type = TransactionType.Buy,
+                ExecutedAt = DateTime.UtcNow,
+                Notes = ""
+            };
+            _db.Transactions.Add(buyTxExisting);
+            await _db.SaveChangesAsync();
+
             return existing;
         }
-
 
         /* -------------------------------------------------------------- */
         /* 3.  AKTUALIZACJA NAZWY / SYMBOLU etc.                          */
@@ -125,7 +155,7 @@ namespace MyWallet.Services.Implementations
         {
             var a = await _db.Assets.FindAsync(id) ?? throw new KeyNotFoundException();
             var current = a.CurrentPrice * a.Quantity;
-            return current - a.InvestedAmount;          // zysk brutto
+            return current - a.InvestedAmount;
         }
 
         /* -------------------------------------------------------------- */

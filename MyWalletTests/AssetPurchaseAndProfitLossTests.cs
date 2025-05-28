@@ -36,8 +36,13 @@ namespace MyWallet.Tests
 
             _mockExternalApi = new Mock<IExternalApiService>();
 
-            _assetService = new AssetService(_context, _mockExternalApi.Object);
+            var mockTransactionService = new Mock<ITransactionService>();
+
+            _assetService = new AssetService(_context, _mockExternalApi.Object, mockTransactionService.Object);
+
             _transactionService = new TransactionService(_context, _assetService);
+
+            _assetService = new AssetService(_context, _mockExternalApi.Object, _transactionService);
 
             var mapper = new TransactionMapper();
 
@@ -49,6 +54,7 @@ namespace MyWallet.Tests
 
             await SetupTestDataAsync();
         }
+
 
         [TearDown]
         public void TearDown() => _context?.Dispose();

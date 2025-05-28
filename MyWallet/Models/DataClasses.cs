@@ -139,9 +139,8 @@ namespace MyWallet.Models
         public decimal TotalAmount { get; set; }
         
         public DateTime ExecutedAt { get; set; } = DateTime.UtcNow;
-        
-        [StringLength(500)]
-        public string Notes { get; set; }
+
+        [StringLength(500)] public string Notes { get; set; } = "";
         
         // Navigational properties
         [ForeignKey("PortfolioId")]

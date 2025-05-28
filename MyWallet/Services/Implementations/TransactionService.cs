@@ -12,12 +12,10 @@ namespace MyWallet.Services.Implementations
     public class TransactionService : ITransactionService
     {
         private readonly ApplicationDbContext _context;
-        private readonly IAssetService _assetService;
 
-        public TransactionService(ApplicationDbContext context, IAssetService assetService)
+        public TransactionService(ApplicationDbContext context)
         {
             _context = context;
-            _assetService = assetService;
         }
 
         public async Task<IEnumerable<Transaction>> GetPortfolioTransactionsAsync(int portfolioId)
@@ -37,48 +35,27 @@ namespace MyWallet.Services.Implementations
 
         public async Task<Transaction> CreateTransactionAsync(Transaction tx)
         {
+            // Oblicz TotalAmount jeśli nie jest ustawione
+            if (tx.TotalAmount == 0)
+            {
+                tx.TotalAmount = tx.Price * tx.Quantity;
+            }
+            
+            if (string.IsNullOrEmpty(tx.Notes))
+            {
+                tx.Notes = ""; // lub inna wartość domyślna
+            }
+
+            // Dodaj transakcję do kontekstu
             await _context.Transactions.AddAsync(tx);
 
-            if (tx.AssetId is int assetId &&
-                (tx.Type == TransactionType.Buy || tx.Type == TransactionType.Sell))
-            {
-                var asset = await _context.Assets.FindAsync(assetId);
-                if (asset == null) throw new InvalidOperationException("Asset not found");
-
-                switch (tx.Type)
-                {
-                    case TransactionType.Buy:
-                        var totalBefore = asset.InvestedAmount;
-                        var qtyBefore   = asset.Quantity;
-
-                        asset.Quantity       += tx.Quantity;
-                        asset.InvestedAmount += tx.TotalAmount;           // cena*zlecona_ilość
-                        asset.AveragePurchasePrice = asset.Quantity == 0
-                            ? 0
-                            : asset.InvestedAmount / asset.Quantity;
-                        break;
-
-                    case TransactionType.Sell:
-                        if (asset.Quantity < tx.Quantity)
-                            throw new InvalidOperationException("Not enough quantity to sell");
-
-                        asset.Quantity       -= tx.Quantity;
-                        asset.InvestedAmount -= asset.AveragePurchasePrice * tx.Quantity;
-
-                        if (asset.Quantity == 0)
-                        {
-                            asset.AveragePurchasePrice = 0;
-                            asset.InvestedAmount       = 0;
-                        }
-                        break;
-                }
-                asset.LastUpdated = DateTime.UtcNow;
-            }
+            // NIE MODYFIKUJEMY ASSETÓW TUTAJ - to robi AssetService
+            // Ta metoda powinna być używana tylko do bezpośredniego dodawania transakcji
+            // (np. Deposit, Withdrawal, Dividend) lub gdy AssetService dodaje Buy/Sell
 
             await _context.SaveChangesAsync();
             return tx;
         }
-
 
         public async Task<bool> UpdateTransactionAsync(Transaction transaction)
         {
@@ -132,7 +109,8 @@ namespace MyWallet.Services.Implementations
             }
 
             // Jeśli transakcja dotyczy aktywa, wycofaj jej efekt
-            if (transaction.AssetId.HasValue)
+            if (transaction.AssetId.HasValue && 
+                (transaction.Type == TransactionType.Buy || transaction.Type == TransactionType.Sell))
             {
                 await ReverseTransactionEffectAsync(transaction);
             }
@@ -176,16 +154,32 @@ namespace MyWallet.Services.Implementations
             switch (transaction.Type)
             {
                 case TransactionType.Buy:
+                    var costAdded = transaction.TotalAmount;
                     asset.Quantity += transaction.Quantity;
+                    asset.InvestedAmount += costAdded;
+                    asset.AveragePurchasePrice = asset.Quantity > 0 ? asset.InvestedAmount / asset.Quantity : 0;
                     break;
+                    
                 case TransactionType.Sell:
+                    if (asset.Quantity < transaction.Quantity)
+                        throw new InvalidOperationException("Not enough quantity to sell");
+                        
                     asset.Quantity -= transaction.Quantity;
+                    asset.InvestedAmount -= asset.AveragePurchasePrice * transaction.Quantity;
+                    
+                    if (asset.Quantity == 0)
+                    {
+                        asset.AveragePurchasePrice = 0;
+                        asset.InvestedAmount = 0;
+                    }
                     break;
+                    
                 case TransactionType.Dividend:
                     // Dywidendy nie wpływają na ilość aktywa
                     break;
             }
 
+            asset.LastUpdated = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
 
@@ -200,32 +194,41 @@ namespace MyWallet.Services.Implementations
             switch (transaction.Type)
             {
                 case TransactionType.Buy:
+                    // Wycofaj zakup
                     asset.Quantity -= transaction.Quantity;
+                    asset.InvestedAmount -= transaction.TotalAmount;
+                    asset.AveragePurchasePrice = asset.Quantity > 0 ? asset.InvestedAmount / asset.Quantity : 0;
                     break;
+                    
                 case TransactionType.Sell:
+                    // Wycofaj sprzedaż
                     asset.Quantity += transaction.Quantity;
+                    asset.InvestedAmount += asset.AveragePurchasePrice * transaction.Quantity;
                     break;
+                    
                 case TransactionType.Dividend:
                     // Dywidendy nie wpływają na ilość aktywa
                     break;
             }
 
+            asset.LastUpdated = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
         
         public async Task<decimal> GetTotalInvestedAmountAsync(int portfolioId)
         {
             return await _context.Transactions
-                .Where(t => t.PortfolioId == portfolioId && t.Type == TransactionType.Deposit)
+                .Where(t => t.PortfolioId == portfolioId && 
+                           (t.Type == TransactionType.Deposit || t.Type == TransactionType.Buy))
                 .SumAsync(t => t.TotalAmount);
         }
         
         public async Task<decimal> GetTotalWithdrawnAmountAsync(int portfolioId)
         {
             return await _context.Transactions
-                .Where(t => t.PortfolioId == portfolioId && t.Type == TransactionType.Withdrawal)
+                .Where(t => t.PortfolioId == portfolioId && 
+                           (t.Type == TransactionType.Withdrawal || t.Type == TransactionType.Sell))
                 .SumAsync(t => t.TotalAmount);
         }
-        
     }
 }

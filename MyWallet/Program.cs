@@ -17,14 +17,17 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // 🔧 Rejestracja serwisów (Dependency Injection)
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
-builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
+builder.Services.AddScoped<IAssetService>(provider => 
+    new AssetService(
+        provider.GetRequiredService<ApplicationDbContext>(),
+        provider.GetRequiredService<IExternalApiService>()
+    ));
 builder.Services.AddHttpClient();
 
 // Cache?
 builder.Services.AddMemoryCache();            
-builder.Services.AddHttpClient();   
 
 
 // ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
