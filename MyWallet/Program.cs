@@ -8,6 +8,8 @@ using MyWallet.Services;
 using MyWallet.Services.Implementations;
 using MyWallet.Mappers;
 using Microsoft.Extensions.Options; 
+using Hangfire;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,14 +22,19 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPortfolioService, PortfolioService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
-builder.Services.AddScoped<IAssetService>(provider => 
-    new AssetService(
-        provider.GetRequiredService<ApplicationDbContext>(),
-        provider.GetRequiredService<IExternalApiService>()
-    ));
+builder.Services.AddScoped<IAssetService, AssetService>();
+
 builder.Services.AddHttpClient();
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
+
+// ref cykliczne?
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+    });
+
 
 // Cache?
 builder.Services.AddMemoryCache();            

@@ -29,6 +29,8 @@ namespace MyWallet.Services
         Task<Dictionary<string, decimal>> GetAssetCategoryDistributionAsync(int portfolioId);
         Task<decimal> GetInvestedAmountAsync(int portfolioId);
         Task<decimal> GetPortfolioProfitLossAsync(int portfolioId);
+        Task<bool> PortfolioExistsAsync(int portfolioId);
+        Task<byte[]> GeneratePortfolioChartWithOxyPlotAsync(int portfolioId, DateTime start, DateTime end);
     }
 
     public interface IAssetService

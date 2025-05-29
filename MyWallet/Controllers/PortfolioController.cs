@@ -117,5 +117,53 @@ namespace MyWallet.Controllers
             var history = await _portfolioService.GetPortfolioHistoryAsync(id, start, end);
             return Ok(history);
         }
+        
+        // Endpoint w kontrollerze
+        [HttpGet("{id}/chart")]
+        public async Task<IActionResult> GetPortfolioChart(
+            int id,
+            [FromQuery] DateTime? start = null,
+            [FromQuery] DateTime? end = null)
+        {
+            try
+            {
+                var startDate = start ?? DateTime.Now.AddMonths(-12);
+                var endDate = end ?? DateTime.Now;
+
+                // Walidacja dat
+                if (startDate > endDate)
+                    return BadRequest(new { error = "Data początkowa nie może być późniejsza niż data końcowa." });
+
+                if (endDate > DateTime.Now)
+                    return BadRequest(new { error = "Data końcowa nie może być z przyszłości." });
+
+                // Sprawdzenie czy portfolio istnieje
+                var portfolioExists = await _portfolioService.PortfolioExistsAsync(id);
+                if (!portfolioExists)
+                    return NotFound(new { error = "Portfolio nie zostało znalezione." });
+
+                var imageBytes = await _portfolioService.GeneratePortfolioChartWithOxyPlotAsync(id, startDate, endDate);
+
+                if (imageBytes == null || imageBytes.Length == 0)
+                    return NotFound(new { error = "Brak danych do wygenerowania wykresu." });
+
+                // Dodanie nagłówków cache i Content-Disposition dla inline wyświetlania
+                Response.Headers["Cache-Control"] = "public, max-age=300"; // 5 minut cache
+                Response.Headers["Content-Disposition"] = $"inline; filename=\"portfolio_{id}_chart.png\"";
+
+                return File(imageBytes, "image/png");
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                // Tu będzie logger kiedyś jak mi sie zechce
+                return StatusCode(500, new { error = "Wystąpił błąd podczas generowania wykresu." });
+            }
+        }
+
+
     }
 }

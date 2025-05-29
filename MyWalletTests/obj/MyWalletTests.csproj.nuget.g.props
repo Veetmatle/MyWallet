@@ -23,6 +23,8 @@
   </ImportGroup>
   <PropertyGroup Condition=" '$(ExcludeRestorePackageImports)' != 'true' ">
     <PkgMicrosoft_Extensions_ApiDescription_Server Condition=" '$(PkgMicrosoft_Extensions_ApiDescription_Server)' == '' ">C:\Users\Andrzej\.nuget\packages\microsoft.extensions.apidescription.server\6.0.5</PkgMicrosoft_Extensions_ApiDescription_Server>
+    <PkgSolar_ScottPlot_WPF Condition=" '$(PkgSolar_ScottPlot_WPF)' == '' ">C:\Users\Andrzej\.nuget\packages\solar.scottplot.wpf\1.0.2</PkgSolar_ScottPlot_WPF>
     <PkgNUnit_Analyzers Condition=" '$(PkgNUnit_Analyzers)' == '' ">C:\Users\Andrzej\.nuget\packages\nunit.analyzers\4.4.0</PkgNUnit_Analyzers>
+    <PkgHangfire_SqlServer Condition=" '$(PkgHangfire_SqlServer)' == '' ">C:\Users\Andrzej\.nuget\packages\hangfire.sqlserver\1.8.20</PkgHangfire_SqlServer>
   </PropertyGroup>
 </Project>

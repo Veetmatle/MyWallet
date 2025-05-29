@@ -5,6 +5,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
+using OxyPlot;
+using OxyPlot.Series;
+using OxyPlot.Axes;
+using OxyPlot.ImageSharp;
+using OxyPlot.Legends;
 
 namespace MyWallet.Services.Implementations
 {
@@ -96,58 +102,59 @@ namespace MyWallet.Services.Implementations
 
         public async Task<PortfolioHistory> RecordPortfolioHistoryAsync(int portfolioId)
         {
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            var portfolio = await _context.Portfolios
+                .Include(p => p.Assets)
+                .Include(p => p.Transactions)
+                .FirstOrDefaultAsync(p => p.Id == portfolioId);
 
-            try
+            if (portfolio == null)
+                throw new KeyNotFoundException($"Portfolio with ID {portfolioId} not found");
+
+            decimal totalValue = await CalculatePortfolioValueAsync(portfolioId);
+
+            decimal investedAmount = portfolio.Transactions
+                                         .Where(t => t.Type == TransactionType.Deposit || t.Type == TransactionType.Buy)
+                                         .Sum(t => t.TotalAmount)
+                                     -
+                                     portfolio.Transactions
+                                         .Where(t => t.Type == TransactionType.Withdrawal || t.Type == TransactionType.Sell)
+                                         .Sum(t => t.TotalAmount);
+
+            var history = new PortfolioHistory
             {
-                var portfolio = await _context.Portfolios
-                    .Include(p => p.Assets)
-                    .Include(p => p.Transactions)
-                    .FirstOrDefaultAsync(p => p.Id == portfolioId);
+                PortfolioId = portfolioId,
+                TotalValue = totalValue,
+                InvestedAmount = investedAmount,
+                RecordedAt = DateTime.UtcNow
+            };
 
-                if (portfolio == null)
-                {
-                    throw new KeyNotFoundException($"Portfolio with ID {portfolioId} not found");
-                }
+            _context.PortfolioHistories.Add(history);
+            await _context.SaveChangesAsync();
 
-                decimal totalValue = await CalculatePortfolioValueAsync(portfolioId);
-
-                decimal investedAmount = portfolio.Transactions
-                                             .Where(t => t.Type == TransactionType.Deposit)
-                                             .Sum(t => t.TotalAmount)
-                                         - portfolio.Transactions
-                                             .Where(t => t.Type == TransactionType.Withdrawal)
-                                             .Sum(t => t.TotalAmount);
-
-                var history = new PortfolioHistory
-                {
-                    PortfolioId = portfolioId,
-                    TotalValue = totalValue,
-                    InvestedAmount = investedAmount,
-                    RecordedAt = DateTime.UtcNow
-                };
-
-                _context.PortfolioHistories.Add(history);
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-
-                return history;
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+            return history;
         }
 
 
-        public async Task<IEnumerable<PortfolioHistory>> GetPortfolioHistoryAsync(int portfolioId, DateTime startDate, DateTime endDate)
+
+        public async Task<IEnumerable<PortfolioHistory>> GetPortfolioHistoryAsync(int portfolioId, DateTime start, DateTime end)
         {
-            return await _context.PortfolioHistories
-                .Where(ph => ph.PortfolioId == portfolioId && ph.RecordedAt >= startDate && ph.RecordedAt <= endDate)
-                .OrderBy(ph => ph.RecordedAt)
+            start = DateTime.SpecifyKind(start, DateTimeKind.Utc);
+            end = DateTime.SpecifyKind(end, DateTimeKind.Utc);
+
+            var history = await _context.PortfolioHistories
+                .Where(h => h.PortfolioId == portfolioId &&
+                            h.RecordedAt >= start &&
+                            h.RecordedAt <= end)
                 .ToListAsync();
+            
+            foreach (var h in history)
+            {
+                h.RecordedAt = DateTime.SpecifyKind(h.RecordedAt, DateTimeKind.Utc);
+            }
+
+            return history;
         }
+
 
         public async Task<Dictionary<string, decimal>> GetAssetCategoryDistributionAsync(int portfolioId)
         {
@@ -184,7 +191,7 @@ namespace MyWallet.Services.Implementations
             return distribution;
         }
 
-        private async Task<bool> PortfolioExistsAsync(int id)
+        public async Task<bool> PortfolioExistsAsync(int id)
         {
             return await _context.Portfolios.AnyAsync(p => p.Id == id);
         }
@@ -218,7 +225,84 @@ namespace MyWallet.Services.Implementations
 
             return totalValue - investedAmount;
         }
+        
+        
+        /* Generowanie wykresu */
+        public async Task<byte[]> GeneratePortfolioChartWithOxyPlotAsync(int portfolioId, DateTime start, DateTime end)
+        {
+            var history = await GetPortfolioHistoryAsync(portfolioId, start, end);
+            if (history == null || !history.Any())
+                return Array.Empty<byte>();
 
+            var plotModel = new PlotModel 
+            { 
+                Title = "Historia portfela",
+                Background = OxyColors.White,
+                PlotAreaBorderColor = OxyColors.Black,
+                PlotAreaBorderThickness = new OxyThickness(1)
+            };
 
+            var dateAxis = new DateTimeAxis
+            {
+                Position = AxisPosition.Bottom,
+                StringFormat = "yyyy-MM-dd",
+                Title = "Data",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray,
+                MinorGridlineStyle = LineStyle.Dot,
+                MinorGridlineColor = OxyColors.LightGray
+            };
+            plotModel.Axes.Add(dateAxis);
+
+            var valueAxis = new LinearAxis
+            {
+                Position = AxisPosition.Left,
+                Title = "Kwota (PLN)",
+                MajorGridlineStyle = LineStyle.Solid,
+                MajorGridlineColor = OxyColors.LightGray,
+                MinorGridlineStyle = LineStyle.Dot,
+                MinorGridlineColor = OxyColors.LightGray,
+                StringFormat = "C0"
+            };
+            plotModel.Axes.Add(valueAxis);
+
+            var investedSeries = new LineSeries 
+            { 
+                Title = "Wpłaty",
+                Color = OxyColors.Blue,
+                StrokeThickness = 2,
+                MarkerType = MarkerType.Circle,
+                MarkerSize = 3,
+                MarkerFill = OxyColors.Blue
+            };
+            
+            var valueSeries = new LineSeries 
+            { 
+                Title = "Aktualna wartość",
+                Color = OxyColors.Green,
+                StrokeThickness = 2,
+                MarkerType = MarkerType.Square,
+                MarkerSize = 3,
+                MarkerFill = OxyColors.Green
+            };
+
+            foreach (var h in history.OrderBy(x => x.RecordedAt))
+            {
+                var dateValue = DateTimeAxis.ToDouble(h.RecordedAt);
+                investedSeries.Points.Add(new DataPoint(dateValue, (double)h.InvestedAmount));
+                valueSeries.Points.Add(new DataPoint(dateValue, (double)h.TotalValue));
+            }
+
+            plotModel.Series.Add(investedSeries);
+            plotModel.Series.Add(valueSeries);
+            
+
+            using var stream = new MemoryStream();
+            var pngExporter = new PngExporter(1000, 600, 300);
+
+            // Używamy metody Export z parametrami rozmiaru i DPI
+            pngExporter.Export(plotModel, stream);
+            return stream.ToArray();
+        }
     }
 }

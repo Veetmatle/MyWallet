@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MyWallet.Data;
 using MyWallet.Models;
+using MyWallet.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,12 +12,14 @@ namespace MyWallet.Services.Implementations
     public class AssetService : IAssetService
     {
         private readonly ApplicationDbContext _db;
-        private readonly IExternalApiService  _prices;
+        private readonly IExternalApiService _prices;
+        private readonly IPortfolioService _portfolioService;  // dodane
 
-        public AssetService(ApplicationDbContext db, IExternalApiService prices)
+        public AssetService(ApplicationDbContext db, IExternalApiService prices, IPortfolioService portfolioService)
         {
             _db = db;
             _prices = prices;
+            _portfolioService = portfolioService;  // dodane
         }
 
         /* -------------------------------------------------------------- */
@@ -58,7 +61,6 @@ namespace MyWallet.Services.Implementations
                 await _db.SaveChangesAsync();
                 await RecordAssetPriceHistoryAsync(asset.Id, asset.CurrentPrice);
 
-                // Zapisz transakcję zakupu BEZPOŚREDNIO do bazy
                 var buyTx = new Transaction
                 {
                     PortfolioId = asset.PortfolioId,
@@ -74,13 +76,14 @@ namespace MyWallet.Services.Implementations
                 _db.Transactions.Add(buyTx);
                 await _db.SaveChangesAsync();
 
+                // Dodajemy zapis historii portfela
+                await _portfolioService.RecordPortfolioHistoryAsync(asset.PortfolioId);
+
                 return asset;
             }
 
             // Dokupienie istniejącego aktywa
             decimal costAdded = asset.CurrentPrice * asset.Quantity;
-            decimal oldQuantity = existing.Quantity;
-            decimal oldInvestedAmount = existing.InvestedAmount;
 
             existing.Quantity += asset.Quantity;
             existing.InvestedAmount += costAdded;
@@ -89,7 +92,6 @@ namespace MyWallet.Services.Implementations
 
             await RecordAssetPriceHistoryAsync(existing.Id, existing.CurrentPrice);
 
-            // Zapisz transakcję dokupienia BEZPOŚREDNIO do bazy
             var buyTxExisting = new Transaction
             {
                 PortfolioId = existing.PortfolioId,
@@ -105,6 +107,9 @@ namespace MyWallet.Services.Implementations
             _db.Transactions.Add(buyTxExisting);
             await _db.SaveChangesAsync();
 
+            // Dodajemy zapis historii portfela
+            await _portfolioService.RecordPortfolioHistoryAsync(existing.PortfolioId);
+
             return existing;
         }
 
@@ -117,13 +122,17 @@ namespace MyWallet.Services.Implementations
             var asset = await _db.Assets.FindAsync(updated.Id);
             if (asset is null) return false;
 
-            asset.Name     = updated.Name;
-            asset.Symbol   = updated.Symbol.ToLower();
+            asset.Name = updated.Name;
+            asset.Symbol = updated.Symbol.ToLower();
             asset.Category = updated.Category;
-            asset.ImagePath= updated.ImagePath;
+            asset.ImagePath = updated.ImagePath;
             asset.LastUpdated = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
+
+            // Dodajemy zapis historii portfela po aktualizacji aktywa
+            await _portfolioService.RecordPortfolioHistoryAsync(asset.PortfolioId);
+
             return true;
         }
 
@@ -172,7 +181,7 @@ namespace MyWallet.Services.Implementations
                 if (price <= 0) continue;
 
                 a.CurrentPrice = price;
-                a.LastUpdated  = DateTime.UtcNow;
+                a.LastUpdated = DateTime.UtcNow;
                 await RecordAssetPriceHistoryAsync(a.Id, price);
             }
             await _db.SaveChangesAsync();
@@ -185,10 +194,10 @@ namespace MyWallet.Services.Implementations
         public async Task<IEnumerable<AssetPriceHistory>> GetAssetPriceHistoryAsync(
             int assetId, DateTime start, DateTime end) =>
             await _db.AssetPriceHistories
-                     .Where(h => h.AssetId == assetId &&
-                                 h.RecordedAt >= start && h.RecordedAt <= end)
-                     .OrderBy(h => h.RecordedAt)
-                     .ToListAsync();
+                .Where(h => h.AssetId == assetId &&
+                            h.RecordedAt >= start && h.RecordedAt <= end)
+                .OrderBy(h => h.RecordedAt)
+                .ToListAsync();
 
         /* -------------------------------------------------------------- */
         /* 8.  Helpers                                                    */
@@ -198,13 +207,13 @@ namespace MyWallet.Services.Implementations
         {
             _db.AssetPriceHistories.Add(new AssetPriceHistory
             {
-                AssetId    = assetId,
-                Price      = price,
+                AssetId = assetId,
+                Price = price,
                 RecordedAt = DateTime.UtcNow
             });
             await _db.SaveChangesAsync();
         }
-        
+
         public async Task<Asset> SellAssetAsync(int assetId, decimal quantityToSell, decimal price)
         {
             var asset = await _db.Assets.FindAsync(assetId);
@@ -243,10 +252,11 @@ namespace MyWallet.Services.Implementations
             _db.Transactions.Add(sellTx);
 
             await _db.SaveChangesAsync();
+
+            // Dodajemy zapis historii portfela po sprzedaży
+            await _portfolioService.RecordPortfolioHistoryAsync(asset.PortfolioId);
+
             return asset;
         }
-
     }
-    
-    
 }

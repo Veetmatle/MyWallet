@@ -416,15 +416,26 @@ export default function PortfolioDetails() {
         <div className="dashboard-content">
             <div className="portfolio-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2>{portfolio.name}</h2>
-                <button
-                    onClick={() => {
-                        if (id) navigate(`/portfolio/${id}/report/form`);
-                    }}
-                    className="generate-report-btn"
-                    style={{ cursor: "pointer" }}
-                >
-                    Generuj raport
-                </button>
+                <div>
+                    <button
+                        onClick={() => {
+                            if (id) navigate(`/portfolio/${id}/report/form`);
+                        }}
+                        className="generate-report-btn"
+                        style={{ cursor: "pointer" }}
+                    >
+                        Generuj raport
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (id) navigate(`/portfolio/${id}/chart`);
+                        }}
+                        className="generate-report-btn"
+                        style={{ cursor: "pointer", marginLeft: 10 }}
+                    >
+                        Wykres
+                    </button>
+                </div>
             </div>
 
             <div className="portfolio-value-container">

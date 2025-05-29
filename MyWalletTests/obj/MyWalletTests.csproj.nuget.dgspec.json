@@ -151,6 +151,14 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "Hangfire": {
+              "target": "Package",
+              "version": "[1.8.20, )"
+            },
+            "Hangfire.PostgreSql": {
+              "target": "Package",
+              "version": "[1.20.12, )"
+            },
             "MailKit": {
               "target": "Package",
               "version": "[4.12.1, )"
@@ -169,6 +177,14 @@
               "target": "Package",
               "version": "[9.0.4, )"
             },
+            "OxyPlot.Core": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
+            "OxyPlot.ImageSharp": {
+              "target": "Package",
+              "version": "[2.2.0, )"
+            },
             "PdfSharpCore": {
               "target": "Package",
               "version": "[1.3.67, )"
@@ -176,6 +192,18 @@
             "Riok.Mapperly": {
               "target": "Package",
               "version": "[4.2.1, )"
+            },
+            "ScottPlot": {
+              "target": "Package",
+              "version": "[5.0.55, )"
+            },
+            "Solar.ScottPlot": {
+              "target": "Package",
+              "version": "[1.0.1, )"
+            },
+            "Solar.ScottPlot.WPF": {
+              "target": "Package",
+              "version": "[1.0.2, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
