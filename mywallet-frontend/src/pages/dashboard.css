@@ -149,7 +149,7 @@
 
 /* Usuń absolutne pozycjonowanie z klasy .delete-btn jeśli gdzieś się pojawia */
 .delete-btn {
-    position: static !important;
+    /*position: static !important;*/
 }
 
 
