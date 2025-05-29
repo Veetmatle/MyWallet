@@ -21,7 +21,7 @@ jobs:
 
       - name: Restore & Build Backend
         run: |
-          dotnet restore MyWallet.sln
+          dotnet restore MyWallet/MyWallet.csproj
           dotnet build MyWallet.sln --no-restore --configuration Release
 
       - name: Run Backend Tests
