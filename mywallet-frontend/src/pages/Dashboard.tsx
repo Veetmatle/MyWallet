@@ -1,6 +1,5 @@
 ﻿import { useEffect, useState } from "react";
-import { createPortfolio } from "../api/portfolio";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./dashboard.css";
 
 interface PortfolioDto {
@@ -8,6 +7,7 @@ interface PortfolioDto {
     name: string;
     description?: string;
     createdAt: string;
+    imagePath?: string | null;
 }
 
 export default function Dashboard() {
@@ -21,11 +21,13 @@ export default function Dashboard() {
     const [newDescription, setNewDescription] = useState("");
     const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
 
-    // --- Nowe stany dla usuwania ---
+    // Stany dla usuwania
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [selectedToDelete, setSelectedToDelete] = useState<number[]>([]);
     const [usernameConfirm, setUsernameConfirm] = useState("");
     const [deleteError, setDeleteError] = useState("");
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         const userData = localStorage.getItem("user");
@@ -82,7 +84,7 @@ export default function Dashboard() {
                     name: newName,
                     description: newDescription,
                     userId: user.id,
-                    createdAt: new Date().toISOString()
+                    createdAt: new Date().toISOString(),
                 }),
             });
 
@@ -98,7 +100,7 @@ export default function Dashboard() {
 
             if (!response.ok) throw new Error("Nie udało się utworzyć portfela.");
 
-            const created = await response.json();
+            const created: PortfolioDto = await response.json();
             setPortfolios([...portfolios, created]);
             setNewName("");
             setNewDescription("");
@@ -109,16 +111,14 @@ export default function Dashboard() {
         }
     };
 
-    // --- Funkcje do usuwania ---
-
-    // Zaznaczanie/odznaczanie portfeli do usunięcia
+    // Toggle zaznaczenia portfeli do usunięcia
     const toggleSelectToDelete = (id: number) => {
-        setSelectedToDelete(prev =>
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        setSelectedToDelete((prev) =>
+            prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
         );
     };
 
-    // Potwierdzenie i usunięcie portfeli
+    // Usunięcie zaznaczonych portfeli
     const handleDeletePortfolios = async () => {
         setDeleteError("");
 
@@ -141,11 +141,11 @@ export default function Dashboard() {
                 }
             }
 
-            // Po usunięciu odśwież listę portfeli
-            const remaining = portfolios.filter(p => !selectedToDelete.includes(p.id));
+            const remaining = portfolios.filter(
+                (p) => !selectedToDelete.includes(p.id)
+            );
             setPortfolios(remaining);
 
-            // Zamknij modal i wyczyść stany
             setShowDeleteModal(false);
             setSelectedToDelete([]);
             setUsernameConfirm("");
@@ -190,9 +190,9 @@ export default function Dashboard() {
                 <div className="dashboard-nav">
                     {user && (
                         <div className="user-info">
-                            <span className="user-name">
-                                Witaj, {user.username || "Użytkowniku"}
-                            </span>
+              <span className="user-name">
+                Witaj, {user.username || "Użytkowniku"}
+              </span>
                             <button onClick={handleLogout} className="logout-btn">
                                 Wyloguj
                             </button>
@@ -224,7 +224,9 @@ export default function Dashboard() {
                             value={newName}
                             onChange={(e) => setNewName(e.target.value)}
                         />
-                        {formErrors.name && <div className="error-message">{formErrors.name}</div>}
+                        {formErrors.name && (
+                            <div className="error-message">{formErrors.name}</div>
+                        )}
 
                         <input
                             type="text"
@@ -249,29 +251,53 @@ export default function Dashboard() {
                         <div className="empty-state-text">
                             <h3>Nie masz jeszcze żadnych portfeli</h3>
                             <p>
-                                Stwórz swój pierwszy portfel, aby zacząć śledzić swoje inwestycje i
-                                oszczędności.
+                                Stwórz swój pierwszy portfel, aby zacząć śledzić swoje
+                                inwestycje i oszczędności.
                             </p>
                         </div>
                     </div>
                 ) : (
                     <div className="portfolios-list">
                         {portfolios.map((portfolio) => (
-                            <Link
-                                to={`/portfolio/${portfolio.id}`}
-                                key={portfolio.id}
-                                className="portfolio-card-link"
-                            >
+                            <div key={portfolio.id} className="portfolio-card-container">
                                 <div className="portfolio-card">
-                                    <h3 className="portfolio-name">{portfolio.name}</h3>
-                                    <p className="portfolio-description">
-                                        {portfolio.description || "Brak opisu"}
-                                    </p>
-                                    <small className="portfolio-date">
-                                        Utworzono: {formatDate(portfolio.createdAt)}
-                                    </small>
+                                    {/* Sekcja INFORMACYJNA */}
+                                    <Link
+                                        to={`/portfolio/${portfolio.id}`}
+                                        className="portfolio-info-link"
+                                    >
+                                        <div className="portfolio-info">
+                                            <p className="portfolio-date">
+                                                Utworzono: {formatDate(portfolio.createdAt)}
+                                            </p>
+                                            <h3 className="portfolio-name">{portfolio.name}</h3>
+                                            <p className="portfolio-description">
+                                                {portfolio.description || "Brak opisu"}
+                                            </p>
+                                        </div>
+                                    </Link>
+
+                                    {/* Sekcja OBRAZKA (kliknięcie przenosi do uploadu) */}
+                                    <div
+                                        className="portfolio-image-wrapper"
+                                        onClick={() =>
+                                            navigate(`/portfolio/${portfolio.id}/upload-image`)
+                                        }
+                                    >
+                                        {portfolio.imagePath ? (
+                                            <img
+                                                src={portfolio.imagePath}
+                                                alt="Zdjęcie portfela"
+                                                className="portfolio-thumbnail"
+                                            />
+                                        ) : (
+                                            <div className="no-image-placeholder">
+                                                Brak zdjęcia
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </Link>
+                            </div>
                         ))}
                     </div>
                 )}
@@ -299,15 +325,26 @@ export default function Dashboard() {
                                 value={usernameConfirm}
                                 onChange={(e) => setUsernameConfirm(e.target.value)}
                             />
-                            {deleteError && <div className="error-message">{deleteError}</div>}
+                            {deleteError && (
+                                <div className="error-message">{deleteError}</div>
+                            )}
                             <div className="modal-buttons">
-                                <button className="delete-btn" onClick={handleDeletePortfolios}>Usuń</button>
-                                <button className="cancel-btn" onClick={() => setShowDeleteModal(false)}>Anuluj</button>
+                                <button
+                                    className="delete-btn"
+                                    onClick={handleDeletePortfolios}
+                                >
+                                    Usuń
+                                </button>
+                                <button
+                                    className="cancel-btn"
+                                    onClick={() => setShowDeleteModal(false)}
+                                >
+                                    Anuluj
+                                </button>
                             </div>
                         </div>
                     </div>
                 )}
-
             </div>
         </div>
     );

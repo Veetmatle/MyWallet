@@ -35,10 +35,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
-
 // Cache?
 builder.Services.AddMemoryCache();            
-
 
 // ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
 builder.Services.AddCors(options =>
@@ -68,6 +66,10 @@ app.UseHttpsRedirection();
 
 // ⬇️ Włączamy CORS przed autoryzacją i mapowaniem kontrolerów
 app.UseCors("AllowFrontend");
+
+// === DODAJ TO LINIĘ ===
+app.UseStaticFiles(); 
+// === Teraz ASP.NET Core będzie serwował katalog wwwroot, a _env.WebRootPath przestanie być null ===
 
 app.UseAuthorization(); // JWT w przyszłości
 

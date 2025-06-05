@@ -1,4 +1,3 @@
-// src/App.tsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
@@ -8,9 +7,10 @@ import Dashboard from "./pages/Dashboard";
 import PortfolioDetails from "./pages/PortfolioDetails";
 import PortfolioReportForm from "./pages/PortfolioReportForm";
 import PortfolioReportView from "./pages/PortfolioReportView";
-
-// Import nowej strony wykresu
 import PortfolioChart from "./pages/PortfolioChart";
+
+// DODANE:
+import PortfolioImageUpload from "./pages/PortfolioImageUpload";
 
 import "./App.css";
 import "./auth.css";
@@ -45,11 +45,15 @@ function App() {
                     path="/portfolio/:id/report/view"
                     element={isAuthenticated() ? <PortfolioReportView /> : <Navigate to="/" />}
                 />
-
-                {/* NOWA TRASA dla wykresu portfela */}
                 <Route
                     path="/portfolio/:id/chart"
                     element={isAuthenticated() ? <PortfolioChart /> : <Navigate to="/" />}
+                />
+
+                {/* DODANE TRASA DO UPLOADU ZDJĘCIA */}
+                <Route
+                    path="/portfolio/:id/upload-image"
+                    element={isAuthenticated() ? <PortfolioImageUpload /> : <Navigate to="/" />}
                 />
 
                 <Route path="*" element={<Navigate to="/" />} />

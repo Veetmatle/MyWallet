@@ -44,6 +44,9 @@ namespace MyWallet.Models
         public int UserId { get; set; }
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [StringLength(255)]
+        public string? ImagePath { get; set; }
         
         // Navigational properties
         [ForeignKey("UserId")]
@@ -94,13 +97,13 @@ namespace MyWallet.Models
         public virtual Portfolio Portfolio { get; set; }
         
         [Column(TypeName = "decimal(18,8)")]
-        public decimal AveragePurchasePrice { get; set; }      // nowy – średni koszt sztuki
+        public decimal AveragePurchasePrice { get; set; }
 
         [Column(TypeName = "decimal(18,8)")]
-        public decimal InvestedAmount { get; set; }            // łączny koszt nabycia (opcjonalnie)
+        public decimal InvestedAmount { get; set; }
         
         public virtual ICollection<AssetPriceHistory> PriceHistory { get; set; } = new List<AssetPriceHistory>();
-        
+
         public string? ImagePath { get; set; }
     }
 
@@ -140,7 +143,8 @@ namespace MyWallet.Models
         
         public DateTime ExecutedAt { get; set; } = DateTime.UtcNow;
 
-        [StringLength(500)] public string Notes { get; set; } = "";
+        [StringLength(500)]
+        public string Notes { get; set; } = "";
         
         // Navigational properties
         [ForeignKey("PortfolioId")]
