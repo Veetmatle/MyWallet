@@ -26,4 +26,4 @@ jobs:
       run: dotnet build MyWalletApplication.sln --no-restore --configuration Release
 
     - name: Run tests
-      run: dotnet test MyWalletTests/MyWalletTests.csproj --no-build --verbosity normal
+      run: dotnet test MyWalletTests/MyWalletTests.csproj --verbosity normal
