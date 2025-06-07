@@ -1,72 +1,58 @@
-﻿using MailKit.Net.Smtp;
-using MimeKit;
-using Microsoft.Extensions.Options;
+﻿using System;
 using System.Threading.Tasks;
-using MailKit.Security; 
+using MailKit.Net.Smtp;
+using MailKit.Security;
+using Microsoft.Extensions.Options;
+using MimeKit;
 
-namespace MyWallet.Services.Implementations;
-
-public class EmailService : IEmailService
+namespace MyWallet.Services.Implementations
 {
-    private readonly EmailSettings _emailSettings;
-
-    // Konstruktor używa IOptions<EmailSettings>
-    public EmailService(IOptions<EmailSettings> emailSettings)
+    public class EmailService : IEmailService
     {
-        _emailSettings = emailSettings.Value;
-    }
+        private readonly EmailSettings _emailSettings;
 
-    public async Task SendEmailWithAttachmentAsync(string toEmail, string subject, string body, byte[] attachmentBytes, string attachmentName)
-    {
-        // Sprawdź czy ustawienia są poprawne
-        if (_emailSettings == null)
-            throw new InvalidOperationException("EmailSettings nie zostały skonfigurowane");
-        
-        if (string.IsNullOrEmpty(_emailSettings.SmtpHost))
-            throw new InvalidOperationException("SmtpHost nie został skonfigurowany");
-
-        var message = new MimeMessage();
-
-        message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.SenderEmail));
-        message.To.Add(MailboxAddress.Parse(toEmail));
-        message.Subject = subject;
-
-        var builder = new BodyBuilder
+        public EmailService(IOptions<EmailSettings> emailSettings)
         {
-            TextBody = body
-        };
-
-        // Dodaj załącznik PDF
-        if (attachmentBytes != null && attachmentBytes.Length > 0)
-        {
-            builder.Attachments.Add(attachmentName, attachmentBytes, new ContentType("application", "pdf"));
+            _emailSettings = emailSettings.Value;
         }
 
-        message.Body = builder.ToMessageBody();
-
-        using var smtp = new SmtpClient();
-
-        try
+        public async Task SendEmailWithAttachmentAsync(
+            string toEmail,
+            string subject,
+            string body,
+            byte[] attachmentBytes,
+            string attachmentName)
         {
-            // Połącz i zaloguj się do SMTP
+            if (_emailSettings == null)
+                throw new InvalidOperationException("EmailSettings nie zostały skonfigurowane");
+
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(_emailSettings.SenderName, _emailSettings.SenderEmail));
+            message.To.Add(MailboxAddress.Parse(toEmail));
+            message.Subject = subject;
+
+            var builder = new BodyBuilder { TextBody = body };
+
+            if (attachmentBytes?.Length > 0)
+            {
+                // MimeKit dobierze MIME-type na podstawie rozszerzenia pliku
+                builder.Attachments.Add(attachmentName, attachmentBytes);
+            }
+
+            message.Body = builder.ToMessageBody();
+
+            using var smtp = new SmtpClient();
+            smtp.ServerCertificateValidationCallback = (s, c, h, e) => true;
+
             await smtp.ConnectAsync(
                 _emailSettings.SmtpHost,
                 _emailSettings.SmtpPort,
                 _emailSettings.SmtpPort == 587 ? SecureSocketOptions.StartTls : SecureSocketOptions.SslOnConnect);
 
             if (!string.IsNullOrWhiteSpace(_emailSettings.SmtpUser))
-            {
                 await smtp.AuthenticateAsync(_emailSettings.SmtpUser, _emailSettings.SmtpPass);
-            }
 
             await smtp.SendAsync(message);
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Błąd wysyłania e-maila: {ex.Message}", ex);
-        }
-        finally
-        {
             await smtp.DisconnectAsync(true);
         }
     }
