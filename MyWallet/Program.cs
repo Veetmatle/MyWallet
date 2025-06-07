@@ -13,6 +13,15 @@ using MyWallet.Services.Implementations;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// 🔒 Wczytaj tajne ustawienia w środowisku Development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
+// 🔑 Wczytaj zmienne środowiskowe z prefixem MYWALLET_
+builder.Configuration.AddEnvironmentVariables(prefix: "MYWALLET_");
+
 // 📦 Połączenie z bazą danych PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -24,7 +33,10 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 
+// 🔌 HTTP Client
 builder.Services.AddHttpClient();
+
+// 📧 Konfiguracja EmailSettings z IOptions
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
@@ -82,11 +94,11 @@ app.UseAuthorization();
 // 🔧 (Opcjonalnie) Hangfire Dashboard pod /hangfire
 app.UseHangfireDashboard("/hangfire");
 
-// 🕒 Definiujemy recurring job – co sobotę o 18:00
+// 🕒 Definiujemy recurring job – co sobotę o 19:00 (TimeZoneInfo.Local ustawiona na Europe/Warsaw)
 RecurringJob.AddOrUpdate<ReportService>(
     "weekly-portfolio-report",
     service => service.SendWeeklyReports(),
-    Cron.Weekly(DayOfWeek.Saturday, 19, 00),
+    Cron.Weekly(DayOfWeek.Saturday, 19, 0),
     TimeZoneInfo.Local
 );
 
