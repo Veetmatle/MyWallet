@@ -443,3 +443,28 @@
 .modal-buttons .cancel-btn:hover {
     background-color: #d1d5db;
 }
+/* ------------------------------------------------------------
+   Wyrównanie pola file i przycisku submit w upload-image form
+-------------------------------------------------------------*/
+/* Niech obydwa mają taką samą wysokość */
+.portfolio-image-upload form input[type="file"],
+.portfolio-image-upload form .add-btn {
+    height: 40px;            /* ten sam wymiar */
+    display: flex;           /* by center-content zadziałało */
+    align-items: center;     /* wertykalne wyśrodkowanie */
+}
+
+/* Przywróć padding horyzontalny tylko */
+.portfolio-image-upload form input[type="file"] {
+    padding: 0 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Usuń pionowy padding (bo już ustawiliśmy height), zachowaj poziomy */
+.portfolio-image-upload form .add-btn {
+    padding: 0 20px;
+    font-size: 14px;
+}
+
+/* Jeśli chcesz, możesz precyzyjniej dobrać height (np. 38px lub 42px) */

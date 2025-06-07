@@ -1,5 +1,6 @@
-﻿import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+﻿// src/pages/PortfolioImageUpload.tsx
+import React, { useState, ChangeEvent, FormEvent, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
     getPortfolioById,
     PortfolioDto,
@@ -8,7 +9,6 @@ import {
 import "./dashboard.css";
 
 const PortfolioImageUpload: React.FC = () => {
-    // Używamy generyka <{ id: string }> aby TS wiedział, że id jest stringiem lub undefined
     const { id } = useParams<{ id: string }>();
     const portfolioId = parseInt(id || "", 10);
     const navigate = useNavigate();
@@ -20,7 +20,7 @@ const PortfolioImageUpload: React.FC = () => {
     useEffect(() => {
         if (!isNaN(portfolioId)) {
             getPortfolioById(portfolioId)
-                .then((data: PortfolioDto) => setPortfolio(data))
+                .then((data) => setPortfolio(data))
                 .catch(() => setError("Nie udało się pobrać danych portfela."));
         } else {
             setError("Nieprawidłowy identyfikator portfela.");
@@ -44,38 +44,60 @@ const PortfolioImageUpload: React.FC = () => {
 
         try {
             await uploadPortfolioImage(portfolioId, selectedFile);
-            // Po poprawnym uploadzie wracamy do dashboardu (gdzie widać miniaturkę)
             navigate("/dashboard");
-        } catch (err) {
-            console.error(err);
+        } catch {
             setError("Wystąpił błąd podczas przesyłania pliku.");
         }
     };
 
     return (
-        <div className="p-4 max-w-md mx-auto">
-            <h2 className="text-xl font-semibold mb-4">
-                {portfolio
-                    ? `Dodaj/zmień zdjęcie dla: ${portfolio.name}`
-                    : "Dodaj zdjęcie do portfela"}
-            </h2>
+        <div className="dashboard-container">
+            {/* Header z linkiem powrotu */}
+            <div className="dashboard-header">
+                <Link to="/dashboard" className="dashboard-logo" style={{ textDecoration: 'none' }}>
+                    ← Powrót do kokpitu
+                </Link>
+            </div>
 
-            {error && <div className="text-red-500 mb-4">{error}</div>}
+            <div className="dashboard-content">
+                <div className="portfolio-image-upload" style={{ maxWidth: 600, margin: "0 auto" }}>
+                    <h2 style={{ marginBottom: 20 }}>
+                        {portfolio
+                            ? `Dodaj/zmień zdjęcie dla: ${portfolio.name}`
+                            : "Dodaj zdjęcie do portfela"}
+                    </h2>
 
-            <form onSubmit={handleSubmit} className="flex flex-col space-y-4">
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="border p-2"
-                />
-                <button
-                    type="submit"
-                    className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700"
-                >
-                    Prześlij zdjęcie
-                </button>
-            </form>
+                    {error && (
+                        <div className="error-message" style={{ marginBottom: 16 }}>
+                            {error}
+                        </div>
+                    )}
+
+                    <form
+                        onSubmit={handleSubmit}
+                        style={{ display: "flex", gap: 12, alignItems: "center" }}
+                    >
+                        <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileChange}
+                            style={{
+                                flex: 1,
+                                padding: "8px 12px",
+                                border: "1px solid #ccc",
+                                borderRadius: 4,
+                            }}
+                        />
+                        <button
+                            type="submit"
+                            className="add-btn"
+                            style={{ padding: "10px 20px" }}
+                        >
+                            Prześlij zdjęcie
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     );
 };
