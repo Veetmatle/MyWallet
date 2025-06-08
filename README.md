@@ -13,8 +13,9 @@
 5. [Warstwa usług (Services)](#warstwa-usług-services)
 6. [DTO i mapowanie](#dto-i-mapowanie)
 7. [Dostęp do danych (EF Core)](#dostęp-do-danych-ef-core)
-8. [Testy Postman](#testy-postman)
-9. [Rozszerzenia i rozwój](#rozszerzenia-i-rozwój)
+8. [Analiza indeksów do optymalizacji zapytań]
+9. [Testy Postman](#testy-postman)
+10. [Przykładowe działanie aplikacji - zrzuty ekranu]
 
 ---
 
