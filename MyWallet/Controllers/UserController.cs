@@ -53,6 +53,9 @@ namespace MyWallet.Controllers
             var user = await _userService.GetUserByUsernameAsync(model.UsernameOrEmail)
                     ?? await _userService.GetUserByEmailAsync(model.UsernameOrEmail);
 
+            // Zapisz ID użytkownika w sesji dla sprawdzania uprawnień administratora
+            HttpContext.Session.SetInt32("UserId", user.Id);
+
             return Ok(_userMapper.ToDto(user));
         }
 
@@ -64,6 +67,32 @@ namespace MyWallet.Controllers
                 return NotFound();
 
             return Ok(_userMapper.ToDto(user));
+        }
+
+        [HttpGet("current")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            var userId = HttpContext.Session.GetInt32("UserId");
+            if (userId == null)
+                return Unauthorized("Użytkownik nie jest zalogowany.");
+
+            var user = await _userService.GetUserByIdAsync(userId.Value);
+            if (user == null)
+                return NotFound("Użytkownik nie został znaleziony.");
+
+            return Ok(new { 
+                userId = user.Id,
+                username = user.Username,
+                email = user.Email,
+                isAdmin = user.IsAdmin 
+            });
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            HttpContext.Session.Clear();
+            return Ok("Wylogowano pomyślnie.");
         }
     }
 

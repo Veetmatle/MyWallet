@@ -1,0 +1,29 @@
+name: .NET CI/CD
+
+on:
+  push:
+    branches:
+      - lask_branch 
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0' 
+
+    - name: Restore dependencies
+      run: dotnet restore MyWalletApplication.sln
+
+    - name: Build solution
+      run: dotnet build MyWalletApplication.sln --no-restore --configuration Release
+
+    - name: Run tests
+      run: dotnet test MyWalletTests/MyWalletTests.csproj --verbosity normal

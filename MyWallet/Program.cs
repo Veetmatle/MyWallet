@@ -1,17 +1,26 @@
+using System;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using MyWallet.Data;
+using MyWallet.Mappers;
 using MyWallet.Services;
 using MyWallet.Services.Implementations;
-using MyWallet.Mappers;
-using Microsoft.Extensions.Options; 
-using Hangfire;
-using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 🔒 Wczytaj tajne ustawienia w środowisku Development
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
+// 🔑 Wczytaj zmienne środowiskowe z prefixem MYWALLET_
+builder.Configuration.AddEnvironmentVariables(prefix: "MYWALLET_");
 
 // 📦 Połączenie z bazą danych PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -24,23 +33,51 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IExternalApiService, ExternalApiService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 
+// 🔌 HTTP Client
 builder.Services.AddHttpClient();
+
+// 📧 Konfiguracja EmailSettings z IOptions
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
 builder.Services.AddScoped<IEmailService, EmailService>();
 
-// ref cykliczne?
+// ✨ Hangfire: konfiguracja storage i uruchomienie serwera
+builder.Services
+    .AddHangfire(cfg => cfg.UsePostgreSqlStorage(
+        builder.Configuration.GetConnectionString("DefaultConnection")))
+    .AddHangfireServer();
+
+// 📦 Rejestracja ReportService – tu wrzucamy logikę cotygodniowej wysyłki
+builder.Services.AddScoped<ReportService>();
+
+// 🔄 Rejestracja mapperów (Mapperly)
+builder.Services.AddScoped<UserMapper>();
+builder.Services.AddScoped<PortfolioMapper>();
+builder.Services.AddScoped<AssetMapper>();
+builder.Services.AddScoped<TransactionMapper>();
+
+// 🌐 Obsługa kontrolerów + JSON cycles
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.ReferenceHandler =
+            System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
+// 📝 Cache
+builder.Services.AddMemoryCache();
 
-// Cache?
-builder.Services.AddMemoryCache();            
+// 🔐 WYMAGANE: Distributed Memory Cache dla sesji
+builder.Services.AddDistributedMemoryCache();
 
+// 🔐 Konfiguracja sesji dla funkcjonalności administratora
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
-// ✨ Dodajemy politykę CORS, aby front na localhost:3000 mógł dzwonić do API
+// 🌍 CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -48,32 +85,42 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials(); // Dodane dla obsługi sesji
     });
 });
 
-// Rejestracja mapperów (Mapperly)
-builder.Services.AddScoped<UserMapper>();
-builder.Services.AddScoped<PortfolioMapper>();
-builder.Services.AddScoped<AssetMapper>();
-builder.Services.AddScoped<TransactionMapper>();
-
-// 🌐 Obsługa kontrolerów
-builder.Services.AddControllers();
-
 var app = builder.Build();
 
-// 🔒 Routing i middleware
+// 🔒 Middleware
 app.UseHttpsRedirection();
 
-// ⬇️ Włączamy CORS przed autoryzacją i mapowaniem kontrolerów
+// ❗️ Static files (wwwroot)
+app.UseStaticFiles();
+
+// ⬇️ CORS przed autoryzacją i mapowaniem kontrolerów
 app.UseCors("AllowFrontend");
 
-app.UseAuthorization(); // JWT w przyszłości
+// 🔐 Włączenie obsługi sesji
+app.UseSession();
+
+app.UseAuthorization();
+
+// 🔧 (Opcjonalnie) Hangfire Dashboard pod /hangfire
+app.UseHangfireDashboard("/hangfire");
+
+// 🕒 Definiujemy recurring job – co sobotę o 19:00 (TimeZoneInfo.Local ustawiona na Europe/Warsaw)
+RecurringJob.AddOrUpdate<ReportService>(
+    "weekly-portfolio-report",
+    service => service.SendWeeklyReports(),
+    Cron.Weekly(DayOfWeek.Sunday, 0, 9),
+    TimeZoneInfo.Local
+);
 
 // 🌍 Mapowanie endpointów z kontrolerów
 app.MapControllers();
 
+// 🚀 Endpoint testowy
 app.MapGet("/", () => "API działa!");
 
 // 🚀 Start aplikacji

@@ -31,6 +31,8 @@ namespace MyWallet.Services
         Task<decimal> GetPortfolioProfitLossAsync(int portfolioId);
         Task<bool> PortfolioExistsAsync(int portfolioId);
         Task<byte[]> GeneratePortfolioChartWithOxyPlotAsync(int portfolioId, DateTime start, DateTime end);
+        Task<List<User>> GetAllUsersAsync();
+        Task<byte[]> GeneratePortfolioReportPdfAsync(int userId);
     }
 
     public interface IAssetService

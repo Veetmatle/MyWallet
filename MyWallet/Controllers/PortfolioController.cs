@@ -1,8 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using MyWallet.DTOs;
 using MyWallet.Mappers;
+using MyWallet.Models;
 using MyWallet.Services;
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -14,11 +18,16 @@ namespace MyWallet.Controllers
     {
         private readonly IPortfolioService _portfolioService;
         private readonly PortfolioMapper _portfolioMapper;
+        private readonly IWebHostEnvironment _env;
 
-        public PortfolioController(IPortfolioService portfolioService, PortfolioMapper portfolioMapper)
+        public PortfolioController(
+            IPortfolioService portfolioService,
+            PortfolioMapper portfolioMapper,
+            IWebHostEnvironment env)
         {
             _portfolioService = portfolioService;
             _portfolioMapper = portfolioMapper;
+            _env = env;
         }
 
         [HttpGet("user/{userId}")]
@@ -44,7 +53,7 @@ namespace MyWallet.Controllers
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
-            
+
             var model = _portfolioMapper.ToModel(dto);
             var created = await _portfolioService.CreatePortfolioAsync(model);
             return CreatedAtAction(nameof(GetPortfolioById), new { id = created.Id }, _portfolioMapper.ToDto(created));
@@ -73,8 +82,6 @@ namespace MyWallet.Controllers
 
             return Ok("Portfel usunięty.");
         }
-        
-        
 
         [HttpGet("{id}/value")]
         public async Task<IActionResult> GetPortfolioValue(int id)
@@ -117,8 +124,7 @@ namespace MyWallet.Controllers
             var history = await _portfolioService.GetPortfolioHistoryAsync(id, start, end);
             return Ok(history);
         }
-        
-        // Endpoint w kontrollerze
+
         [HttpGet("{id}/chart")]
         public async Task<IActionResult> GetPortfolioChart(
             int id,
@@ -130,14 +136,12 @@ namespace MyWallet.Controllers
                 var startDate = start ?? DateTime.Now.AddMonths(-12);
                 var endDate = end ?? DateTime.Now;
 
-                // Walidacja dat
                 if (startDate > endDate)
                     return BadRequest(new { error = "Data początkowa nie może być późniejsza niż data końcowa." });
 
                 if (endDate > DateTime.Now)
                     return BadRequest(new { error = "Data końcowa nie może być z przyszłości." });
 
-                // Sprawdzenie czy portfolio istnieje
                 var portfolioExists = await _portfolioService.PortfolioExistsAsync(id);
                 if (!portfolioExists)
                     return NotFound(new { error = "Portfolio nie zostało znalezione." });
@@ -147,8 +151,7 @@ namespace MyWallet.Controllers
                 if (imageBytes == null || imageBytes.Length == 0)
                     return NotFound(new { error = "Brak danych do wygenerowania wykresu." });
 
-                // Dodanie nagłówków cache i Content-Disposition dla inline wyświetlania
-                Response.Headers["Cache-Control"] = "public, max-age=300"; // 5 minut cache
+                Response.Headers["Cache-Control"] = "public, max-age=300";
                 Response.Headers["Content-Disposition"] = $"inline; filename=\"portfolio_{id}_chart.png\"";
 
                 return File(imageBytes, "image/png");
@@ -157,13 +160,79 @@ namespace MyWallet.Controllers
             {
                 return BadRequest(new { error = ex.Message });
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                // Tu będzie logger kiedyś jak mi sie zechce
                 return StatusCode(500, new { error = "Wystąpił błąd podczas generowania wykresu." });
             }
         }
 
+        // ======================================
+        // Nowa akcja do uploadu zdjęcia portfela
+        // ======================================
+        [HttpPost("{id}/upload-image")]
+        public async Task<IActionResult> UploadImage(int id, IFormFile file)
+        {
+            // 1️⃣ Sprawdzenie, czy WebRootPath nie jest null/empty (czy app.UseStaticFiles() został wywołany)
+            var webRootPath = _env.WebRootPath;
+            if (string.IsNullOrEmpty(webRootPath))
+            {
+                return StatusCode(500, "WebRootPath jest pusty. Upewnij się, że w Program.cs wywołałeś `app.UseStaticFiles()` i masz fizyczny folder `wwwroot`.");
+            }
 
+            // 2️⃣ Walidacja pliku
+            if (file == null || file.Length == 0)
+                return BadRequest("Nie wybrano pliku.");
+
+            if (!file.ContentType.StartsWith("image/"))
+                return BadRequest("Dozwolone są tylko pliki graficzne.");
+
+            // 3️⃣ Utworzenie katalogu wwwroot/images/portfolios (jeśli nie istnieje)
+            string imagesFolder = Path.Combine(webRootPath, "images", "portfolios");
+            if (!Directory.Exists(imagesFolder))
+            {
+                Directory.CreateDirectory(imagesFolder);
+            }
+
+            // 4️⃣ Generowanie unikalnej nazwy pliku (GUID + rozszerzenie)
+            string extension = Path.GetExtension(file.FileName);
+            string uniqueFileName = $"{Guid.NewGuid()}{extension}";
+
+            // 5️⃣ Zapis pliku na dysku w katalogu imagesFolder
+            string filePath = Path.Combine(imagesFolder, uniqueFileName);
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            // 6️⃣ Zbudowanie relatywnej ścieżki URL: "/images/portfolios/unikalnaNazwa.ext"
+            string relativePath = Path.Combine("images", "portfolios", uniqueFileName)
+                                      .Replace("\\", "/");
+            string urlPath = "/" + relativePath;
+
+            // 7️⃣ Pobranie encji Portfolio, aktualizacja ImagePath i zapis w bazie
+            var portfolio = await _portfolioService.GetPortfolioByIdAsync(id);
+            if (portfolio == null)
+                return NotFound($"Nie znaleziono portfela o id {id}.");
+
+            // (Opcjonalne) usunięcie starego pliku, jeśli był (odkomentuj, jeśli potrzebujesz):
+            /*
+            if (!string.IsNullOrEmpty(portfolio.ImagePath))
+            {
+                var existingFile = Path.Combine(webRootPath, portfolio.ImagePath.TrimStart('/'));
+                if (System.IO.File.Exists(existingFile))
+                {
+                    System.IO.File.Delete(existingFile);
+                }
+            }
+            */
+
+            portfolio.ImagePath = urlPath;
+            var success = await _portfolioService.UpdatePortfolioAsync(portfolio);
+            if (!success)
+                return StatusCode(StatusCodes.Status500InternalServerError, "Nie udało się zaktualizować portfela.");
+
+            var dto = _portfolioMapper.ToDto(portfolio);
+            return Ok(dto);
+        }
     }
 }

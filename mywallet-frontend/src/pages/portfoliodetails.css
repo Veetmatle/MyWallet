@@ -1,0 +1,114 @@
+﻿/* src/pages/portfolio-details.css */
+
+.assets-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+    margin-bottom: 24px; /* dodatkowa przestrzeń pod listą aktywów */
+}
+
+.asset-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    padding: 16px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    transition: transform .15s, box-shadow .15s;
+    cursor: pointer;
+}
+.asset-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.asset-card h4 {
+    margin: 0 0 8px;
+    font-size: 16px;
+}
+
+.asset-card p {
+    margin: 2px 0;
+    font-size: 14px;
+}
+
+.asset-card .buttons {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 8px;
+}
+
+/* Always visible dark gray icons */
+.asset-card .refresh-btn,
+.asset-card .delete-btn {
+    background: none !important;
+    border: none !important;
+    color: #555 !important;
+    padding: 0;
+    font-size: 18px;
+    cursor: pointer;
+    transition: color .2s;
+}
+/* Subtle dark hover for icons */
+.asset-card .refresh-btn:hover,
+.asset-card .delete-btn:hover {
+    color: #333 !important;
+}
+
+/* Profit/Loss coloring */
+.profit-loss.profit { color: #16a34a; }
+.profit-loss.loss   { color: #dc2626; }
+
+/* Portfolio value and change bold */
+.portfolio-value,
+.profit-loss {
+    font-weight: 600;
+}
+
+/* --------------------------------------------
+   Sell asset form styling
+--------------------------------------------- */
+.sell-asset-form {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.sell-asset-form select,
+.sell-asset-form input[type="number"] {
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex: 1 1 200px;
+    min-width: 120px;
+}
+
+.sell-asset-form button {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+.sell-asset-form button:hover {
+    background-color: #2563eb;
+}
+
+/* Ensure the horizontal rule separation has breathing room */
+hr {
+    margin: 24px 0;
+}

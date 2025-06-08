@@ -1,6 +1,8 @@
 ﻿import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import "./dashboard.css";
+import "./portfoliodetails.css";
+
 import { useAssetHints, AssetHintDto } from "../hooks/useAssetHints";
 
 interface AssetDto {
@@ -453,11 +455,11 @@ export default function PortfolioDetails() {
             {assets.length === 0 ? (
                 <p>Brak aktywów w portfelu.</p>
             ) : (
-                <div className="portfolios-list">
+                <div className="assets-list">
                     {assets.map((a) => (
                         <div
                             key={a.id}
-                            className="portfolio-card"
+                            className="asset-card"
                             onClick={() => {
                                 setShowSellForm(true);
                                 setSellAsset({
@@ -466,36 +468,47 @@ export default function PortfolioDetails() {
                                     price: a.currentPrice.toString(),
                                 });
                             }}
-                            style={{ cursor: "pointer" }}
                             title="Kliknij, aby sprzedać część aktywa"
                         >
-                            <button
-                                className="refresh-btn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRefresh(a.id);
-                                }}
-                                title="Odśwież cenę"
-                            >
-                                ⟳
-                            </button>
-                            <button
-                                className="delete-btn"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(a.id);
-                                }}
-                                title="Usuń aktywo"
-                            >
-                                ×
-                            </button>
+                            <div className="buttons">
+                                <button
+                                    className="refresh-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleRefresh(a.id);
+                                    }}
+                                    title="Odśwież cenę"
+                                >
+                                    ⟳
+                                </button>
+                                <button
+                                    className="delete-btn"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDelete(a.id);
+                                    }}
+                                    title="Usuń aktywo"
+                                >
+                                    ×
+                                </button>
+                            </div>
 
-                            <h4>{a.symbol.toUpperCase()} — {a.name}</h4>
-                            <p>Kategoria: {ASSET_CATEGORIES.find((cat) => cat.value === a.category)?.label || a.category}</p>
+                            <h4>
+                                {a.symbol.toUpperCase()} — {a.name}
+                            </h4>
+                            <p>
+                                Kategoria:{" "}
+                                {
+                                    ASSET_CATEGORIES.find((cat) => cat.value === a.category)
+                                        ?.label || a.category
+                                }
+                            </p>
                             <p>Śr. cena zakupu: ${a.averagePurchasePrice.toFixed(2)}</p>
                             <p>Cena aktualna: ${a.currentPrice.toFixed(2)}</p>
                             <p>Ilość: {a.quantity}</p>
-                            <p><strong>Wartość: ${a.currentValue.toFixed(2)}</strong></p>
+                            <p>
+                                <strong>Wartość: ${a.currentValue.toFixed(2)}</strong>
+                            </p>
                         </div>
                     ))}
                 </div>
