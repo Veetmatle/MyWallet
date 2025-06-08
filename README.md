@@ -194,9 +194,9 @@ Na drugim zrzucie (Nested Loop + 2×Index Scan) widać, że:
   * Execution Time spadło prawie o połowę: z ~0.108 ms do ~0.052 ms,
   * Planning Time minimalnie wzrosło (bo planner rozważył więcej opcji).
 
-To pokazuje, że:
--> Plan domyślny (Seq Scan + Hash Join) omija indeksy, bo są one na małych zestawach „za drogie”, a tabele w naszym projekcie rozmiarem nie grzeszą.
--> Plan zmuszony (musieliśmy użyć zakazu seq scan, bo nie chciał puścić - Nested Loop + Index Scan) faktycznie sięga po założone indeksy i – nawet przy tak małej próbce – daje zauważalny wzrost wydajności (krótszy czas wykonania).
+**To pokazuje, że:**
+* Plan domyślny (Seq Scan + Hash Join) omija indeksy, bo są one na małych zestawach „za drogie”, a tabele w naszym projekcie rozmiarem nie grzeszą.
+* Plan zmuszony (musieliśmy użyć zakazu seq scan, bo nie chciał puścić - Nested Loop + Index Scan) faktycznie sięga po założone indeksy i – nawet przy tak małej próbce – daje zauważalny wzrost wydajności (krótszy czas wykonania).
 
 
 ### `Kilka przykładowych testów z postmana.`
