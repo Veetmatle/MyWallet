@@ -76,7 +76,7 @@ namespace MyWallet.Migrations
 
                     b.HasIndex("PortfolioId", "Symbol");
 
-                    b.ToTable("Assets");
+                    b.ToTable("Assets", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.AssetPriceHistory", b =>
@@ -100,7 +100,7 @@ namespace MyWallet.Migrations
 
                     b.HasIndex("AssetId", "RecordedAt");
 
-                    b.ToTable("AssetPriceHistories");
+                    b.ToTable("AssetPriceHistories", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.ExternalApiConfig", b =>
@@ -131,7 +131,7 @@ namespace MyWallet.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ExternalApiConfigs");
+                    b.ToTable("ExternalApiConfigs", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.Portfolio", b =>
@@ -166,7 +166,7 @@ namespace MyWallet.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Portfolios");
+                    b.ToTable("Portfolios", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.PortfolioHistory", b =>
@@ -193,7 +193,7 @@ namespace MyWallet.Migrations
 
                     b.HasIndex("PortfolioId", "RecordedAt");
 
-                    b.ToTable("PortfolioHistories");
+                    b.ToTable("PortfolioHistories", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.Transaction", b =>
@@ -243,7 +243,7 @@ namespace MyWallet.Migrations
 
                     b.HasIndex("PortfolioId");
 
-                    b.ToTable("Transactions");
+                    b.ToTable("Transactions", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.User", b =>
@@ -262,6 +262,9 @@ namespace MyWallet.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("text");
@@ -279,7 +282,7 @@ namespace MyWallet.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("MyWallet.Models.Asset", b =>
