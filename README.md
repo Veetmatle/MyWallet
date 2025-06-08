@@ -169,6 +169,23 @@ Każdy kontroler odpowiada za jedną grupę funkcji:
 
 ---
 
+### `Analiza indeksów do optymalizacji zapytań`
+
+![image](https://github.com/user-attachments/assets/dba4b0d1-0d4e-49a3-9113-04b990a03e61)
+
+Bez indeksów:
+![image](https://github.com/user-attachments/assets/e7145703-f13a-463e-8f33-92b459164a4d)
+
+Tworzymy indeksy:
+![image](https://github.com/user-attachments/assets/e5f017df-2d76-4e38-a3ef-72e5f4025893)
+
+Z indeksami:
+![image](https://github.com/user-attachments/assets/e805e96c-12e6-40ad-a8a3-ee9d05f6c5b6)
+
+Wnioski: 
+
+
+
 ### `Kilka przykładowych testów z postmana.`
 
 ![image](https://github.com/user-attachments/assets/071f2e88-a1bb-461a-849b-c05ec3e00ad1)
