@@ -17,7 +17,8 @@
 9. [Testy Postman](#testy-postman)
 10. [Github Actions]
 11. [Nasłuch endpointu]
-12. [Przykładowe działanie aplikacji - zrzuty ekranu]
+12. [NBomber - masakracja api ku chwale ludzkości]
+13. [Przykładowe działanie aplikacji - zrzuty ekranu]
 
 ---
 
@@ -228,7 +229,7 @@ W projekcie skonfigurowano workflow, który przy każdym pushu do gałęzi `lask
 
 ![image](https://github.com/user-attachments/assets/4acb1848-3587-4dda-901d-4288f2105ae0)
 
-### EF Core Logging
+### ** EF Core Logging **
 
 Aby zobaczyć dokładne zapytania SQL wysyłane przez EF Core, włączamy logowanie w `Program.cs`:
 
@@ -248,6 +249,36 @@ WHERE p."UserId" = @__userId_0 – wynik filtrowany do portfeli użytkownika o I
 
 Zapytanie jest w pełni sparametryzowane, co zwiększa bezpieczeństwo i pozwala na ponowne użycie planu wykonania.
 Dzięki EnableSensitiveDataLogging() w logach widać wartość parametru (@__userId_0 = '1') oraz czas wykonania (~2 ms).
+
+#  **NBomber - zastosowanie**
+
+* W projekcie przetestowano test obciążeniowy (load test, bombienie endpointa) dla API endpoint'a portfolio użytkownika.
+* Kod wykonuje symulację obciążenia na endpoint http://localhost:5210/api/portfolio/user/4, wysyłając 10 żądań HTTP GET na sekundę przez 30 sekund (łącznie 300 żądań). (Dla odpalenia samego kodu bez frontu)
+* Kod obsługuje trzy typy wyjątków:
+  - HttpRequestException - problemy sieciowe (brak połączenia, DNS)
+
+  - TaskCanceledException - timeout żądania (przekroczenie 30 sekund)
+
+  - Exception - inne nieoczekiwane błędy
+
+
+![image](https://github.com/user-attachments/assets/bb3f89df-427d-4f82-a153-d0c5d251625b)
+
+![image](https://github.com/user-attachments/assets/b92c983f-f3ba-4f45-a68b-e913d5960236)
+
+![image](https://github.com/user-attachments/assets/7cdbe31a-815a-4bb3-8c5d-24fcb19a46e4)
+
+![image](https://github.com/user-attachments/assets/d1ba8bbe-900e-4368-b1a2-45fdf0f70f46)
+
+### **Analiza wyników testów: **
+
+* Wyniki testu obciążeniowego pokazują doskonałą wydajność API portfolio - wszystkie 300 żądań zakończyły się sukcesem (100% success rate) bez żadnych błędów. 
+* Średni czas odpowiedzi wynosi zaledwie 1.32ms, a nawet w 99. percentylu (p99) odpowiedzi nie przekraczają 3.67ms, co świadczy o bardzo szybkiej i stabilnej responsywności systemu.
+* API osiągnęło przepustowość 10 żądań na sekundę zgodnie z konfiguracją testu, co potwierdza, że system bez problemu radzi sobie z tym poziomem obciążenia
+
+
+
+
 
 ### `Kilka przykładowych ss z działania aplikacji`
 
