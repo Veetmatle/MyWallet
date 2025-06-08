@@ -202,7 +202,7 @@ Na drugim zrzucie (Nested Loop + 2×Index Scan) widać, że:
 * Plan zmuszony (musieliśmy użyć zakazu seq scan, bo nie chciał puścić - Nested Loop + Index Scan) faktycznie sięga po założone indeksy i – nawet przy tak małej próbce – daje zauważalny wzrost wydajności (krótszy czas wykonania).
 
 
-### `Kilka przykładowych testów z postmana.`
+# `Kilka przykładowych testów z postmana.`
 
 ![image](https://github.com/user-attachments/assets/071f2e88-a1bb-461a-849b-c05ec3e00ad1)
 
@@ -220,7 +220,7 @@ Na drugim zrzucie (Nested Loop + 2×Index Scan) widać, że:
 
 ![image](https://github.com/user-attachments/assets/ec06bcdc-8e17-479b-a998-afbc39cf0c21)
 
-## 🚀 CI/CD z użyciem GitHub Actions
+# 🚀 CI/CD z użyciem GitHub Actions
 
 W projekcie skonfigurowano workflow, który przy każdym pushu do gałęzi `lask_branch` oraz przy każdym pull requeście automatycznie:
 1. przywraca zależności (`dotnet restore`),  
@@ -229,7 +229,7 @@ W projekcie skonfigurowano workflow, który przy każdym pushu do gałęzi `lask
 
 ![image](https://github.com/user-attachments/assets/4acb1848-3587-4dda-901d-4288f2105ae0)
 
-### ** EF Core Logging **
+# **EF Core Logging**
 
 Aby zobaczyć dokładne zapytania SQL wysyłane przez EF Core, włączamy logowanie w `Program.cs`:
 
@@ -280,7 +280,7 @@ Dzięki EnableSensitiveDataLogging() w logach widać wartość parametru (@__use
 
 
 
-### `Kilka przykładowych ss z działania aplikacji`
+# `Kilka przykładowych ss z działania aplikacji`
 
 ![image](https://github.com/user-attachments/assets/9c4dcdae-7aee-4b1a-9c42-0864aaa574e7)
 
