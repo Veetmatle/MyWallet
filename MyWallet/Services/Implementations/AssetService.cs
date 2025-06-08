@@ -144,6 +144,10 @@ namespace MyWallet.Services.Implementations
         {
             var asset = await _db.Assets.FindAsync(id);
             if (asset is null) return false;
+            
+            var relatedTx = _db.Transactions.Where(t => t.AssetId == id);
+            _db.Transactions.RemoveRange(relatedTx);
+            await _db.SaveChangesAsync();
 
             _db.Assets.Remove(asset);
             await _db.SaveChangesAsync();
