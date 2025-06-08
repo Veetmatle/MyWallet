@@ -15,7 +15,9 @@
 7. [Dostęp do danych (EF Core)](#dostęp-do-danych-ef-core)
 8. [Analiza indeksów do optymalizacji zapytań]
 9. [Testy Postman](#testy-postman)
-10. [Przykładowe działanie aplikacji - zrzuty ekranu]
+10. [Github Actions]
+11. [Nasłuch endpointu]
+12. [Przykładowe działanie aplikacji - zrzuty ekranu]
 
 ---
 
@@ -217,6 +219,35 @@ Na drugim zrzucie (Nested Loop + 2×Index Scan) widać, że:
 
 ![image](https://github.com/user-attachments/assets/ec06bcdc-8e17-479b-a998-afbc39cf0c21)
 
+## 🚀 CI/CD z użyciem GitHub Actions
+
+W projekcie skonfigurowano workflow, który przy każdym pushu do gałęzi `lask_branch` oraz przy każdym pull requeście automatycznie:
+1. przywraca zależności (`dotnet restore`),  
+2. buduje rozwiązanie w trybie Release (`dotnet build`),  
+3. uruchamia testy jednostkowe (`dotnet test`).
+
+![image](https://github.com/user-attachments/assets/4acb1848-3587-4dda-901d-4288f2105ae0)
+
+### EF Core Logging
+
+Aby zobaczyć dokładne zapytania SQL wysyłane przez EF Core, włączamy logowanie w `Program.cs`:
+
+![image](https://github.com/user-attachments/assets/461ab345-2812-451b-9ede-13da0e17986e)
+
+Wywołujemy endpoint:
+
+![image](https://github.com/user-attachments/assets/5edb5ddc-d9d2-47bc-ac9d-bc87c418e643)
+
+W konsoli wypisuje się:
+
+![image](https://github.com/user-attachments/assets/12cc96dc-ea25-4233-a6d1-0cd056c7f6c0)
+
+SELECT … FROM "Portfolios" – pobierane są wszystkie portfele.
+WHERE p."UserId" = @__userId_0 – wynik filtrowany do portfeli użytkownika o ID = 1.
+@__userId_0 – parametr EF Core, zabezpieczający przed SQL Injection.
+
+Zapytanie jest w pełni sparametryzowane, co zwiększa bezpieczeństwo i pozwala na ponowne użycie planu wykonania.
+Dzięki EnableSensitiveDataLogging() w logach widać wartość parametru (@__userId_0 = '1') oraz czas wykonania (~2 ms).
 
 ### `Kilka przykładowych ss z działania aplikacji`
 
