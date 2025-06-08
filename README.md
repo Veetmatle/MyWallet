@@ -169,21 +169,33 @@ Każdy kontroler odpowiada za jedną grupę funkcji:
 
 ---
 
-### `Analiza indeksów do optymalizacji zapytań`
+# `Analiza indeksów do optymalizacji zapytań`
 
-![image](https://github.com/user-attachments/assets/dba4b0d1-0d4e-49a3-9113-04b990a03e61)
+![image](https://github.com/user-attachments/assets/5414151e-e3e8-466a-ac2e-515b4290c50c)
 
-Bez indeksów:
-![image](https://github.com/user-attachments/assets/e7145703-f13a-463e-8f33-92b459164a4d)
+#### Bez użycia indeksów:
 
-Tworzymy indeksy:
-![image](https://github.com/user-attachments/assets/e5f017df-2d76-4e38-a3ef-72e5f4025893)
+![image](https://github.com/user-attachments/assets/2941960e-5b06-4f4e-8e75-5d4e3f932ba9)
 
-Z indeksami:
-![image](https://github.com/user-attachments/assets/e805e96c-12e6-40ad-a8a3-ee9d05f6c5b6)
+#### Z użyciem indeksów:
 
-Wnioski: 
+![image](https://github.com/user-attachments/assets/b3408b65-4e6e-4ee0-98c3-ba969741b15d)
 
+
+### Wnioski: 
+
+Na pierwszym zrzucie (Hash Join + 2×Seq Scan) widać, że planner przeskanował obie tabele sekwencyjnie i zrobił Hash Join, a w Buffers miał tylko po 1 odczycie z każdej. To jest brak wykorzystania indeksów.
+
+Na drugim zrzucie (Nested Loop + 2×Index Scan) widać, że:
+  * Dla tabeli Assets użył się PK_Assets (indeks na kolumnie Id) i dopiero potem zastosował filtr Category = 'cryptocurrency'.
+  * Dla Transactions użyło się idx_transactions_assetid (indeks na AssetId).
+  * W Buffers: shared hit odpowiednio 2 odczyty dla Assets i 19 dla Transactions (razem 21, bo ciut więcej stron dojechało przez indeks),
+  * Execution Time spadło prawie o połowę: z ~0.108 ms do ~0.052 ms,
+  * Planning Time minimalnie wzrosło (bo planner rozważył więcej opcji).
+
+To pokazuje, że:
+-> Plan domyślny (Seq Scan + Hash Join) omija indeksy, bo są one na małych zestawach „za drogie”, a tabele w naszym projekcie rozmiarem nie grzeszą.
+-> Plan zmuszony (musieliśmy użyć zakazu seq scan, bo nie chciał puścić - Nested Loop + Index Scan) faktycznie sięga po założone indeksy i – nawet przy tak małej próbce – daje zauważalny wzrost wydajności (krótszy czas wykonania).
 
 
 ### `Kilka przykładowych testów z postmana.`
