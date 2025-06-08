@@ -10,11 +10,32 @@ interface PortfolioDto {
     imagePath?: string | null;
 }
 
+interface User {
+    userId: number;
+    username: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    isAdmin: boolean;
+}
+
+interface AdminUser {
+    userId: number;
+    username: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+    isAdmin: boolean;
+}
+
 export default function Dashboard() {
     const [portfolios, setPortfolios] = useState<PortfolioDto[]>([]);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState<any>(null);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+    const [adminLoading, setAdminLoading] = useState(false);
 
     const [showForm, setShowForm] = useState(false);
     const [newName, setNewName] = useState("");
@@ -39,6 +60,9 @@ export default function Dashboard() {
         const parsedUser = JSON.parse(userData);
         setUser(parsedUser);
 
+        // Sprawdź status administratora
+        checkAdminStatus();
+
         setLoading(true);
         fetch(`/api/portfolio/user/${parsedUser.id}`)
             .then((res) => {
@@ -54,6 +78,61 @@ export default function Dashboard() {
                 setLoading(false);
             });
     }, []);
+
+    const checkAdminStatus = async () => {
+        try {
+            const response = await fetch('/api/user/current');
+            if (response.ok) {
+                const userData = await response.json();
+                setIsAdmin(userData.isAdmin);
+                if (userData.isAdmin) {
+                    fetchAdminUsers();
+                }
+            }
+        } catch (error) {
+            console.error('Błąd sprawdzania statusu admina:', error);
+        }
+    };
+
+    const fetchAdminUsers = async () => {
+        setAdminLoading(true);
+        try {
+            const response = await fetch('/api/admin/users');
+            if (response.ok) {
+                const users = await response.json();
+                setAdminUsers(users);
+            }
+        } catch (error) {
+            console.error('Błąd pobierania użytkowników:', error);
+        }
+        setAdminLoading(false);
+    };
+
+    const makeAdmin = async (userId: number) => {
+        try {
+            const response = await fetch(`/api/admin/make-admin/${userId}`, {
+                method: 'POST',
+            });
+            if (response.ok) {
+                fetchAdminUsers();
+            }
+        } catch (error) {
+            console.error('Błąd nadawania uprawnień admina:', error);
+        }
+    };
+
+    const removeAdmin = async (userId: number) => {
+        try {
+            const response = await fetch(`/api/admin/remove-admin/${userId}`, {
+                method: 'POST',
+            });
+            if (response.ok) {
+                fetchAdminUsers();
+            }
+        } catch (error) {
+            console.error('Błąd usuwania uprawnień admina:', error);
+        }
+    };
 
     const handleLogout = () => {
         localStorage.removeItem("user");
@@ -180,6 +259,92 @@ export default function Dashboard() {
         );
     }
 
+    // Panel administratora
+    if (isAdmin) {
+        return (
+            <div className="dashboard-container">
+                <div className="dashboard-header">
+                    <div className="dashboard-logo">
+                        <img src="/logo192.png" alt="MyWallet Logo" />
+                        <span>MyWallet - Panel Administratora</span>
+                    </div>
+                    <div className="dashboard-nav">
+                        {user && (
+                            <div className="user-info">
+                                <span className="user-name">
+                                    Admin: {user.username || "Użytkownik"}
+                                </span>
+                                <button onClick={handleLogout} className="logout-btn">
+                                    Wyloguj
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <div className="dashboard-content">
+                    <h2 className="page-title">Zarządzanie użytkownikami</h2>
+
+                    {adminLoading ? (
+                        <p>Ładowanie użytkowników...</p>
+                    ) : (
+                        <div className="admin-panel">
+                            <table className="admin-table">
+                                <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Nazwa użytkownika</th>
+                                    <th>Email</th>
+                                    <th>Imię</th>
+                                    <th>Nazwisko</th>
+                                    <th>Status</th>
+                                    <th>Akcje</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {adminUsers.map(adminUser => (
+                                    <tr key={adminUser.userId}>
+                                        <td>{adminUser.userId}</td>
+                                        <td>{adminUser.username}</td>
+                                        <td>{adminUser.email}</td>
+                                        <td>{adminUser.firstName || '-'}</td>
+                                        <td>{adminUser.lastName || '-'}</td>
+                                        <td>
+                                            {adminUser.isAdmin ? (
+                                                <span className="admin-badge">Administrator</span>
+                                            ) : (
+                                                <span className="user-badge">Użytkownik</span>
+                                            )}
+                                        </td>
+                                        <td>
+                                            {!adminUser.isAdmin ? (
+                                                <button
+                                                    className="make-admin-btn"
+                                                    onClick={() => makeAdmin(adminUser.userId)}
+                                                >
+                                                    Zrób admina
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    className="remove-admin-btn"
+                                                    onClick={() => removeAdmin(adminUser.userId)}
+                                                >
+                                                    Usuń admina
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Normalny dashboard dla zwykłych użytkowników
     return (
         <div className="dashboard-container">
             <div className="dashboard-header">
@@ -190,9 +355,9 @@ export default function Dashboard() {
                 <div className="dashboard-nav">
                     {user && (
                         <div className="user-info">
-              <span className="user-name">
-                Witaj, {user.username || "Użytkowniku"}
-              </span>
+                            <span className="user-name">
+                                Witaj, {user.username || "Użytkowniku"}
+                            </span>
                             <button onClick={handleLogout} className="logout-btn">
                                 Wyloguj
                             </button>

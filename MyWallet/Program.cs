@@ -66,6 +66,17 @@ builder.Services.AddControllers()
 // 📝 Cache
 builder.Services.AddMemoryCache();
 
+// 🔐 WYMAGANE: Distributed Memory Cache dla sesji
+builder.Services.AddDistributedMemoryCache();
+
+// 🔐 Konfiguracja sesji dla funkcjonalności administratora
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromMinutes(30);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
 // 🌍 CORS
 builder.Services.AddCors(options =>
 {
@@ -74,7 +85,8 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials(); // Dodane dla obsługi sesji
     });
 });
 
@@ -89,6 +101,9 @@ app.UseStaticFiles();
 // ⬇️ CORS przed autoryzacją i mapowaniem kontrolerów
 app.UseCors("AllowFrontend");
 
+// 🔐 Włączenie obsługi sesji
+app.UseSession();
+
 app.UseAuthorization();
 
 // 🔧 (Opcjonalnie) Hangfire Dashboard pod /hangfire
@@ -98,7 +113,7 @@ app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<ReportService>(
     "weekly-portfolio-report",
     service => service.SendWeeklyReports(),
-    Cron.Weekly(DayOfWeek.Saturday, 19, 0),
+    Cron.Weekly(DayOfWeek.Sunday, 0, 9),
     TimeZoneInfo.Local
 );
 

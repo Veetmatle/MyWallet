@@ -26,6 +26,7 @@ namespace MyWallet.Models
         
         // Navigational properties
         public virtual ICollection<Portfolio> Portfolios { get; set; } = new List<Portfolio>();
+        public bool IsAdmin { get; set; } = false;
     }
 
     public class Portfolio
