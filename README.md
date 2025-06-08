@@ -1,22 +1,3 @@
-### `Na początek kilka przykładowych testów z postmana.`
-
-![image](https://github.com/user-attachments/assets/071f2e88-a1bb-461a-849b-c05ec3e00ad1)
-
-![image](https://github.com/user-attachments/assets/be12f368-2ff6-4804-86f8-05ebb055a4fe)
-
-![image](https://github.com/user-attachments/assets/1c589fa7-6d07-4034-a332-5769d6f1806a)
-
-![image](https://github.com/user-attachments/assets/b0e52680-7d82-48e2-b833-9e2714fd0661)
-
-![image](https://github.com/user-attachments/assets/c2678fa4-5e6b-482e-b34f-54619830c63d)
-
-![image](https://github.com/user-attachments/assets/3dec744a-ab1d-4682-b916-d8de51958cd2)
-
-![image](https://github.com/user-attachments/assets/33c7b2b6-f6da-4365-be46-f7f4dd914a67)
-
-![image](https://github.com/user-attachments/assets/ec06bcdc-8e17-479b-a998-afbc39cf0c21)
-
-
 # MyWallet
 
 **MyWallet** to prosta aplikacja ASP .NET Core Web API do zarządzania portfelami, aktywami i transakcjami finansowymi. Została podzielona na kilka warstw, aby oddzielić logikę domenową od warstwy prezentacji i dostępu do danych.
@@ -187,6 +168,52 @@ Każdy kontroler odpowiada za jedną grupę funkcji:
 * **Migracje** w folderze `Migrations/` – trzymają historię zmian w schemacie bazy.
 
 ---
+
+### `Kilka przykładowych testów z postmana.`
+
+![image](https://github.com/user-attachments/assets/071f2e88-a1bb-461a-849b-c05ec3e00ad1)
+
+![image](https://github.com/user-attachments/assets/be12f368-2ff6-4804-86f8-05ebb055a4fe)
+
+![image](https://github.com/user-attachments/assets/1c589fa7-6d07-4034-a332-5769d6f1806a)
+
+![image](https://github.com/user-attachments/assets/b0e52680-7d82-48e2-b833-9e2714fd0661)
+
+![image](https://github.com/user-attachments/assets/c2678fa4-5e6b-482e-b34f-54619830c63d)
+
+![image](https://github.com/user-attachments/assets/3dec744a-ab1d-4682-b916-d8de51958cd2)
+
+![image](https://github.com/user-attachments/assets/33c7b2b6-f6da-4365-be46-f7f4dd914a67)
+
+![image](https://github.com/user-attachments/assets/ec06bcdc-8e17-479b-a998-afbc39cf0c21)
+
+
+### `Kilka przykładowych ss z działania aplikacji`
+
+![image](https://github.com/user-attachments/assets/9c4dcdae-7aee-4b1a-9c42-0864aaa574e7)
+
+![image](https://github.com/user-attachments/assets/7a7a1334-aff8-4db4-adc6-6e50f964cfa4)
+
+![image](https://github.com/user-attachments/assets/ca015125-ce5e-4e1d-9e80-662cfaca9394)
+
+![image](https://github.com/user-attachments/assets/436f2a6a-ab8f-4c63-b6f8-b7f15f56e3de)
+
+![image](https://github.com/user-attachments/assets/179b4922-1925-4f8c-b931-7edc6d810b02)
+
+![image](https://github.com/user-attachments/assets/5bf17e2f-d3b7-4736-bc7f-2c81eefa16cc)
+
+![image](https://github.com/user-attachments/assets/f38cc8e0-7627-464d-b255-ad73587cb2b2)
+
+![image](https://github.com/user-attachments/assets/85188ffd-05fb-4cba-9159-301536243288)
+
+![image](https://github.com/user-attachments/assets/248ce00a-f40d-4690-983d-1966f2d11b2e)
+
+![image](https://github.com/user-attachments/assets/8696d4dd-4454-4ccc-9c3c-7751d72e223d)
+
+![image](https://github.com/user-attachments/assets/e9ffbbb0-2714-49f8-91c0-c75742f7cf85)
+
+![image](https://github.com/user-attachments/assets/38ebd167-7b1b-4e27-98e9-59be1b3b9106)
+
 
 
 
